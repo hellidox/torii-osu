@@ -12,12 +12,14 @@ using osu.Framework.Graphics.Containers;
 using osu.Framework.Input;
 using osu.Framework.Input.Events;
 using osu.Framework.Localisation;
+using osu.Game.Beatmaps;
 using osu.Game.Collections;
 using osu.Game.Configuration;
 using osu.Game.Database;
 using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.UserInterface;
 using osu.Game.Graphics.UserInterfaceV2;
+using osu.Game.Input.Bindings;
 using osu.Game.Localisation;
 using osu.Game.Online.API;
 using osu.Game.Online.API.Requests.Responses;
@@ -30,12 +32,14 @@ using osuTK.Input;
 
 namespace osu.Game.Screens.SelectV2
 {
-    public partial class FilterControl : OverlayContainer
+    public sealed partial class FilterControl : OverlayContainer
     {
         // taken from draw visualiser. used for carousel alignment purposes.
         public const float HEIGHT_FROM_SCREEN_TOP = 141 - corner_radius;
 
         private const float corner_radius = 10;
+
+        public IBindable<BeatmapSetInfo?> ScopedBeatmapSet { get; } = new Bindable<BeatmapSetInfo?>();
 
         private SongSelectSearchTextBox searchTextBox = null!;
         private ShearedToggleButton showConvertedBeatmapsButton = null!;
@@ -43,6 +47,14 @@ namespace osu.Game.Screens.SelectV2
         private ShearedDropdown<SortMode> sortDropdown = null!;
         private ShearedDropdown<GroupMode> groupDropdown = null!;
         private CollectionDropdown collectionDropdown = null!;
+
+        /// <summary>
+        /// An optional method which can force certain criteria adjustments.
+        /// </summary>
+        public Action<FilterCriteria>? ApplyRequiredCriteria { get; set; }
+
+        [Resolved]
+        private ISongSelect? songSelect { get; set; }
 
         [Resolved]
         private IBindable<RulesetInfo> ruleset { get; set; } = null!;
@@ -111,6 +123,7 @@ namespace osu.Game.Screens.SelectV2
                             {
                                 RelativeSizeAxes = Axes.X,
                                 HoldFocus = true,
+                                ScopedBeatmapSet = { BindTarget = ScopedBeatmapSet },
                             },
                         },
                         new GridContainer
@@ -158,6 +171,7 @@ namespace osu.Game.Screens.SelectV2
                                 new Dimension(maxSize: 180),
                                 new Dimension(GridSizeMode.Absolute, 5),
                                 new Dimension(),
+                                new Dimension(GridSizeMode.AutoSize),
                             },
                             Content = new[]
                             {
@@ -182,6 +196,10 @@ namespace osu.Game.Screens.SelectV2
                                 }
                             }
                         },
+                        new ScopedBeatmapSetDisplay
+                        {
+                            ScopedBeatmapSet = { BindTarget = ScopedBeatmapSet },
+                        }
                     },
                 }
             };
@@ -240,6 +258,7 @@ namespace osu.Game.Screens.SelectV2
 
             localUser.BindValueChanged(_ => updateCriteria());
             localUserFavouriteBeatmapSets.BindCollectionChanged((_, _) => updateCriteria());
+            ScopedBeatmapSet.BindValueChanged(_ => updateCriteria(clearScopedSet: false));
 
             updateCriteria();
         }
@@ -260,6 +279,7 @@ namespace osu.Game.Screens.SelectV2
 
             var criteria = new FilterCriteria
             {
+                SelectedBeatmapSet = ScopedBeatmapSet.Value,
                 Sort = sortDropdown.Current.Value,
                 Group = groupDropdown.Current.Value,
                 AllowConvertedBeatmaps = showConvertedBeatmapsButton.Active.Value,
@@ -279,11 +299,22 @@ namespace osu.Game.Screens.SelectV2
             criteria.RulesetCriteria = ruleset.Value.CreateInstance().CreateRulesetFilterCriteria();
 
             FilterQueryParser.ApplyQueries(criteria, query);
+
+            ApplyRequiredCriteria?.Invoke(criteria);
+
             return criteria;
         }
 
-        private void updateCriteria()
+        private void updateCriteria(bool clearScopedSet = true)
         {
+            if (clearScopedSet && ScopedBeatmapSet.Value != null)
+            {
+                songSelect?.UnscopeBeatmapSet();
+                // because `ScopedBeatmapSet` has a value change callback bound to it that calls `updateCriteria()` again,
+                // we can just do nothing other than clear it to avoid extra work and duplicated `CriteriaChanged` invocations
+                return;
+            }
+
             currentCriteria = CreateCriteria();
             CriteriaChanged?.Invoke(currentCriteria);
         }
@@ -311,11 +342,26 @@ namespace osu.Game.Screens.SelectV2
 
         internal partial class SongSelectSearchTextBox : ShearedFilterTextBox
         {
-            protected override InnerSearchTextBox CreateInnerTextBox() => new InnerTextBox();
+            public IBindable<BeatmapSetInfo?> ScopedBeatmapSet { get; } = new Bindable<BeatmapSetInfo?>();
+
+            protected override InnerSearchTextBox CreateInnerTextBox() => new InnerTextBox
+            {
+                ScopedBeatmapSet = { BindTarget = ScopedBeatmapSet },
+            };
 
             private partial class InnerTextBox : InnerFilterTextBox
             {
+                public IBindable<BeatmapSetInfo?> ScopedBeatmapSet { get; } = new Bindable<BeatmapSetInfo?>();
+
                 public override bool HandleLeftRightArrows => false;
+
+                public override bool OnPressed(KeyBindingPressEvent<GlobalAction> e)
+                {
+                    if (e.Action == GlobalAction.Back && ScopedBeatmapSet.Value != null)
+                        return false;
+
+                    return base.OnPressed(e);
+                }
 
                 public override bool OnPressed(KeyBindingPressEvent<PlatformAction> e)
                 {

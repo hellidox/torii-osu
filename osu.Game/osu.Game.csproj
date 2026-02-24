@@ -40,11 +40,13 @@ Modified by GooGuTeam</PackageReleaseNotes>
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.2" />
     <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="ppy.LocalisationAnalyser" Version="2024.802.0">
+    <PackageReference Include="ppy.LocalisationAnalyser" Version="2025.1208.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Realm" Version="20.1.0" />
+    <PackageReference Include="ppy.osu.Framework" Version="2026.209.0" />
+    <PackageReference Include="ppy.osu.Game.Resources" Version="2026.223.0" />
     <PackageReference Include="Sentry" Version="5.1.1" />
     <!-- Held back due to 0.34.0 failing AOT compilation on ZstdSharp.dll dependency. -->
     <PackageReference Include="SharpCompress" Version="0.39.0" />
@@ -58,9 +60,5 @@ Modified by GooGuTeam</PackageReleaseNotes>
     <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
     <PackageReference Include="System.Runtime.Handles" Version="4.3.0" />
     <PackageReference Include="Uno.UI" Version="5.6.99" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\osu-framework\osu.Framework\osu.Framework.csproj" />
-    <ProjectReference Include="..\..\osu-resources\osu.Game.Resources\osu.Game.Resources.csproj" />
   </ItemGroup>
 </Project>

@@ -1,20 +1,15 @@
 ﻿// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
-using osu.Framework.Bindables;
 using osu.Framework.Configuration;
 using osu.Framework.Extensions;
 using osu.Framework.Graphics;
-using osu.Framework.Graphics.Rendering.LowLatency;
 using osu.Framework.Localisation;
-using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Game.Configuration;
-using osu.Game.Graphics.UserInterface;
+using osu.Game.Graphics.UserInterfaceV2;
 using osu.Game.Localisation;
 using osu.Game.Overlays.Dialog;
 
@@ -26,99 +21,49 @@ namespace osu.Game.Overlays.Settings.Sections.Graphics
 
         private bool automaticRendererInUse;
 
-        private SettingsEnumDropdown<LatencyMode>? latencySetting;
-        private LatencyProviderType currentProvider = LatencyProviderType.None;
-
-        private enum LatencyProviderType
-        {
-            None,
-            NVIDIA,
-            AMD
-        }
-
         [BackgroundDependencyLoader]
         private void load(FrameworkConfigManager config, OsuConfigManager osuConfig, IDialogOverlay? dialogOverlay, OsuGame? game, GameHost host)
         {
             var renderer = config.GetBindable<RendererType>(FrameworkSetting.Renderer);
             automaticRendererInUse = renderer.Value == RendererType.Automatic;
 
-            var reflexMode = config.GetBindable<LatencyMode>(FrameworkSetting.LatencyMode);
-            var frameSyncMode = config.GetBindable<FrameSync>(FrameworkSetting.FrameSync);
-
             Children = new Drawable[]
             {
-                new RendererSettingsDropdown
+                new SettingsItemV2(new RendererDropdown
                 {
-                    LabelText = GraphicsSettingsStrings.Renderer,
+                    Caption = GraphicsSettingsStrings.Renderer,
                     Current = renderer,
                     Items = host.GetPreferredRenderersForCurrentPlatform().Order()
 #pragma warning disable CS0612 // Type or member is obsolete
                                 .Where(t => t != RendererType.Vulkan && t != RendererType.OpenGLLegacy),
 #pragma warning restore CS0612 // Type or member is obsolete
+                })
+                {
                     Keywords = new[] { @"compatibility", @"directx" },
                 },
-                new FrameSyncSettingsDropdown
+                // TODO: this needs to be a custom dropdown at some point
+                new SettingsItemV2(new FormEnumDropdown<FrameSync>
                 {
-                    LabelText = GraphicsSettingsStrings.FrameLimiter,
+                    Caption = GraphicsSettingsStrings.FrameLimiter,
                     Current = config.GetBindable<FrameSync>(FrameworkSetting.FrameSync),
-                    Keywords = new[] { @"fps" },
-                },
-                new SettingsEnumDropdown<ExecutionMode>
+                })
                 {
-                    LabelText = GraphicsSettingsStrings.ThreadingMode,
+                    Keywords = new[] { @"fps", @"framerate" },
+                },
+                new SettingsItemV2(new FormEnumDropdown<ExecutionMode>
+                {
+                    Caption = GraphicsSettingsStrings.ThreadingMode,
                     Current = config.GetBindable<ExecutionMode>(FrameworkSetting.ExecutionMode)
-                },
-                latencySetting = new SettingsEnumDropdown<LatencyMode>
+                }),
+                new SettingsItemV2(new FormCheckBox
                 {
-                    LabelText = "Low Latency Mode",
-                    Current = reflexMode,
-                    Keywords = new[] { @"latency", @"low", @"input", @"lag" },
-                    TooltipText = "Reduces input-to-display latency using GPU vendor-specific technologies.\nRequires compatible NVIDIA or AMD GPU with recent drivers."
-                },
-                new SettingsCheckbox
+                    Caption = GraphicsSettingsStrings.ShowFPS,
+                    Current = osuConfig.GetBindable<bool>(OsuSetting.ShowFpsDisplay),
+                })
                 {
-                    LabelText = GraphicsSettingsStrings.ShowFPS,
-                    Current = osuConfig.GetBindable<bool>(OsuSetting.ShowFpsDisplay)
+                    Keywords = new[] { @"framerate", @"counter" },
                 },
             };
-
-            // Determine which low latency provider is available
-            UpdateLatencyProvider(host);
-
-            // Hide low latency settings if not using Direct3D 11 renderer
-            if (host.ResolvedRenderer is not (RendererType.Deferred_Direct3D11 or RendererType.Direct3D11))
-            {
-                reflexMode.Value = LatencyMode.Off;
-                latencySetting.Hide();
-            }
-            else
-            {
-                UpdateLatencyProviderUI();
-            }
-
-            // Handle frame limiter when low latency mode is enabled
-            reflexMode.BindValueChanged(r =>
-            {
-                if (r.NewValue != LatencyMode.Off)
-                {
-                    // When low latency is enabled, only allow unlimited FPS options
-                    // This allows competitive players to use unlimited FPS while keeping low latency benefits
-                    frameSyncMode.Disabled = false; // Keep enabled but filter options
-
-                    // If current mode is not unlimited, switch to UnlimitedNoCap for best performance
-                    if (frameSyncMode.Value != FrameSync.Unlimited && frameSyncMode.Value != FrameSync.UnlimitedNoCap)
-                        frameSyncMode.Value = FrameSync.UnlimitedNoCap;
-                }
-                else
-                {
-                    frameSyncMode.Disabled = false;
-                }
-
-                latencySetting.ClearNoticeText();
-
-                if (r.NewValue == LatencyMode.Boost)
-                    SetLatencyBoostNotice();
-            }, true);
 
             renderer.BindValueChanged(r =>
             {
@@ -128,10 +73,6 @@ namespace osu.Game.Overlays.Settings.Sections.Graphics
                 // Need to check startup renderer for the "automatic" case, as ResolvedRenderer above will track the final resolved renderer instead.
                 if (r.NewValue == RendererType.Automatic && automaticRendererInUse)
                     return;
-
-                // Update latency provider when renderer changes
-                UpdateLatencyProvider(host);
-                UpdateLatencyProviderUI();
 
                 if (game?.RestartAppWhenExited() == true)
                 {
@@ -147,155 +88,25 @@ namespace osu.Game.Overlays.Settings.Sections.Graphics
             });
         }
 
-        private void UpdateLatencyProvider(GameHost host)
+        private partial class RendererDropdown : FormEnumDropdown<RendererType>
         {
-            // Check if we're using Direct3D 11 renderer (required for both NVIDIA and AMD low latency)
-            if (host.ResolvedRenderer is (RendererType.Deferred_Direct3D11 or RendererType.Direct3D11))
-            {
-                // Try to determine GPU vendor from the low latency provider type
-                // This is set by the desktop project during startup
-                var providerType = host.GetLowLatencyProviderType();
-
-                switch (providerType)
-                {
-                    case "NVAPIDirect3D11LowLatencyProvider":
-                        currentProvider = LatencyProviderType.NVIDIA;
-                        Logger.Log("NVIDIA GPU detected - NVIDIA Reflex features available.");
-                        break;
-
-                    case "AMDAntiLag2Direct3D11LowLatencyProvider":
-                        currentProvider = LatencyProviderType.AMD;
-                        Logger.Log("AMD GPU detected - AMD Anti-Lag 2 features available.");
-                        break;
-
-                    default:
-                        currentProvider = LatencyProviderType.None;
-                        Logger.Log("Direct3D 11 renderer detected but no compatible low latency provider found.");
-                        break;
-                }
-            }
-            else
-            {
-                currentProvider = LatencyProviderType.None;
-                Logger.Log("Low latency features not available for current renderer.");
-            }
-        }
-
-        private void UpdateLatencyProviderUI()
-        {
-            if (latencySetting == null)
-                return;
-
-            switch (currentProvider)
-            {
-                case LatencyProviderType.NVIDIA:
-                    latencySetting.LabelText = "NVIDIA Reflex";
-                    latencySetting.TooltipText = "Reduces latency by leveraging the NVIDIA Reflex API on NVIDIA GPUs.\nRecommended to have On, turn Off only if experiencing issues.";
-                    latencySetting.Keywords = new[] { @"nvidia", @"latency", @"reflex" };
-                    latencySetting.Show();
-                    break;
-
-                case LatencyProviderType.AMD:
-                    latencySetting.LabelText = "AMD Anti-Lag";
-                    latencySetting.TooltipText = "Reduces latency by leveraging AMD Anti-Lag 2 on AMD RDNA GPUs.\nRecommended to have On, turn Off only if experiencing issues.";
-                    latencySetting.Keywords = new[] { @"amd", @"latency", @"anti-lag", @"antilag" };
-                    latencySetting.Show();
-                    break;
-
-                case LatencyProviderType.None:
-                    latencySetting.Hide();
-                    break;
-            }
-        }
-
-        private void SetLatencyBoostNotice()
-        {
-            string noticeText = currentProvider switch
-            {
-                LatencyProviderType.NVIDIA => "Boost increases GPU power consumption and may increase latency in some cases. Disable Boost if experiencing issues.",
-                LatencyProviderType.AMD => "Boost mode provides maximum latency reduction but may increase GPU power consumption. Disable Boost if experiencing issues.",
-                _ => "Boost mode increases GPU power consumption. Disable if experiencing issues."
-            };
-
-            latencySetting?.SetNoticeText(noticeText, true);
-        }
-
-        private partial class RendererSettingsDropdown : SettingsEnumDropdown<RendererType>
-        {
-            protected override OsuDropdown<RendererType> CreateDropdown() => new RendererDropdown();
-
-            protected partial class RendererDropdown : DropdownControl
-            {
-                private RendererType hostResolvedRenderer;
-                private bool automaticRendererInUse;
-
-                [BackgroundDependencyLoader]
-                private void load(FrameworkConfigManager config, GameHost host)
-                {
-                    var renderer = config.GetBindable<RendererType>(FrameworkSetting.Renderer);
-                    automaticRendererInUse = renderer.Value == RendererType.Automatic;
-                    hostResolvedRenderer = host.ResolvedRenderer;
-                }
-
-                protected override LocalisableString GenerateItemText(RendererType item)
-                {
-                    if (item == RendererType.Automatic && automaticRendererInUse)
-                        return LocalisableString.Interpolate($"{base.GenerateItemText(item)} ({hostResolvedRenderer.GetDescription()})");
-
-                    return base.GenerateItemText(item);
-                }
-            }
-        }
-
-        private partial class FrameSyncSettingsDropdown : SettingsEnumDropdown<FrameSync>
-        {
-            private Bindable<LatencyMode> latencyMode = null!;
+            private RendererType hostResolvedRenderer;
+            private bool automaticRendererInUse;
 
             [BackgroundDependencyLoader]
-            private void load(FrameworkConfigManager config)
+            private void load(FrameworkConfigManager config, GameHost host)
             {
-                latencyMode = config.GetBindable<LatencyMode>(FrameworkSetting.LatencyMode);
+                var renderer = config.GetBindable<RendererType>(FrameworkSetting.Renderer);
+                automaticRendererInUse = renderer.Value == RendererType.Automatic;
+                hostResolvedRenderer = host.ResolvedRenderer;
             }
 
-            protected override void LoadComplete()
+            protected override LocalisableString GenerateItemText(RendererType item)
             {
-                base.LoadComplete();
-                // Initialize dropdown items after dependency injection is complete
-                if (Control is FrameSyncDropdown frameSyncDropdown)
-                    frameSyncDropdown.InitializeItems(latencyMode);
-            }
+                if (item == RendererType.Automatic && automaticRendererInUse)
+                    return LocalisableString.Interpolate($"{base.GenerateItemText(item)} ({hostResolvedRenderer.GetDescription()})");
 
-            protected override OsuDropdown<FrameSync> CreateDropdown() => new FrameSyncDropdown();
-
-            private partial class FrameSyncDropdown : DropdownControl
-            {
-                private Bindable<LatencyMode> latencyMode = null!;
-
-                public FrameSyncDropdown()
-                {
-                }
-
-                public void InitializeItems(Bindable<LatencyMode> latencyMode)
-                {
-                    this.latencyMode = latencyMode;
-                    latencyMode.BindValueChanged(_ => updateItems(), true);
-                }
-
-                private void updateItems()
-                {
-                    var allItems = Enum.GetValues<FrameSync>();
-
-                    if (latencyMode.Value != LatencyMode.Off)
-                    {
-                        // When low latency is enabled, only show unlimited options
-                        Items = allItems.Where(x => x == FrameSync.Unlimited || x == FrameSync.UnlimitedNoCap).Order();
-                    }
-                    else
-                    {
-                        // When low latency is disabled, show all options
-                        Items = allItems.Order();
-                    }
-                }
+                return base.GenerateItemText(item);
             }
         }
     }

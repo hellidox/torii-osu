@@ -2,6 +2,8 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System.Collections.Generic;
+using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Game.Beatmaps;
 using osu.Game.Graphics.UserInterface;
 using osu.Game.Scoring;
@@ -11,6 +13,7 @@ namespace osu.Game.Screens.SelectV2
     /// <summary>
     /// Actions exposed by song select which are used by subcomponents to perform top-level operations.
     /// </summary>
+    [Cached]
     public interface ISongSelect
     {
         /// <summary>
@@ -43,5 +46,23 @@ namespace osu.Game.Screens.SelectV2
         /// Gets relevant actionable items for beatmap context menus, based on the type of song select.
         /// </summary>
         IEnumerable<OsuMenuItem> GetForwardActions(BeatmapInfo beatmap);
+
+        /// <summary>
+        /// Temporarily bypasses filters and shows all difficulties of the given beatmapset.
+        /// </summary>
+        /// <param name="beatmapSet">The beatmapset.</param>
+        void ScopeToBeatmapSet(BeatmapSetInfo beatmapSet);
+
+        /// <summary>
+        /// Removes the beatmapset scope and reverts the previously selected filters.
+        /// </summary>
+        void UnscopeBeatmapSet();
+
+        /// <summary>
+        /// Contains the currently scoped beatmapset. Used by external consumers for displaying its state.
+        /// Cannot be used to change the value, any changes must be done through <see cref="ScopeToBeatmapSet"/>
+        /// or <see cref="UnscopeBeatmapSet"/>.
+        /// </summary>
+        IBindable<BeatmapSetInfo?> ScopedBeatmapSet { get; }
     }
 }

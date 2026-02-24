@@ -7,6 +7,6 @@
     <RootNamespace>osu.Game.Rulesets.Space</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\osu\osu.Game\osu.Game.csproj" />
+    <ProjectReference Include="..\osu.Game\osu.Game.csproj" />
   </ItemGroup>
 </Project>

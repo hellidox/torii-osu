@@ -15,6 +15,7 @@ using osu.Game.Input;
 using osu.Game.Input.Bindings;
 using osu.Game.Localisation;
 using osu.Game.Overlays;
+using osu.Game.Overlays.Dashboard.Friends;
 using osu.Game.Overlays.Mods.Input;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Screens.Edit.Compose.Components;
@@ -242,6 +243,9 @@ namespace osu.Game.Configuration
 
             // intentionally uses `DateTime?` and not `DateTimeOffset?` because the latter fails due to `DateTimeOffset` not implementing `IConvertible`
             SetDefault(OsuSetting.LastOnlineTagsPopulation, (DateTime?)null);
+
+            SetDefault(OsuSetting.DashboardSortMode, UserSortCriteria.LastVisit);
+            SetDefault(OsuSetting.DashboardDisplayStyle, OverlayPanelDisplayStyle.Card);
         }
 
         protected override bool CheckLookupContainsPrivateInformation(OsuSetting lookup)
@@ -505,6 +509,8 @@ namespace osu.Game.Configuration
         /// Disables automatic updates for the GU version.
         /// </summary>
         DisableAutomaticUpdates,
-        AllowBenchmarkUnlimitedFrameLimiter
+        AllowBenchmarkUnlimitedFrameLimiter,
+        DashboardSortMode,
+        DashboardDisplayStyle,
     }
 }

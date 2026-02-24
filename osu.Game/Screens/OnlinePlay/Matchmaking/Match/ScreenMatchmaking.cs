@@ -13,7 +13,6 @@ using osu.Framework.Extensions.ObjectExtensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Cursor;
-using osu.Framework.Graphics.Shapes;
 using osu.Framework.Input.Events;
 using osu.Framework.Logging;
 using osu.Framework.Screens;
@@ -57,8 +56,8 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
 
         public override bool ShowFooter => true;
 
-        [Resolved]
-        private OverlayColourProvider colourProvider { get; set; } = null!;
+        [Cached]
+        private readonly OverlayColourProvider colourProvider = new OverlayColourProvider(OverlayColourScheme.Pink);
 
         protected override BackgroundScreen CreateBackground() => new MatchmakingBackgroundScreen(colourProvider);
 
@@ -124,7 +123,7 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
         }
 
         [BackgroundDependencyLoader]
-        private void load(OverlayColourProvider colourProvider)
+        private void load()
         {
             sampleStart = audio.Samples.Get(@"SongSelect/confirm-selection");
 
@@ -138,50 +137,44 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
                     {
                         beatmapAvailabilityTracker,
                         new MultiplayerRoomSounds(),
-                        new GridContainer
+                        new Container
                         {
                             RelativeSizeAxes = Axes.Both,
                             Padding = new MarginPadding
                             {
-                                Horizontal = WaveOverlayContainer.WIDTH_PADDING,
-                                Top = row_padding,
+                                Horizontal = HORIZONTAL_OVERFLOW_PADDING,
                             },
-                            RowDimensions = new[]
+                            Child = new InverseScalingDrawSizePreservingFillContainer
                             {
-                                new Dimension(),
-                                new Dimension(GridSizeMode.Absolute, row_padding),
-                                new Dimension(GridSizeMode.AutoSize),
-                            },
-                            Content = new Drawable[]?[]
-                            {
-                                [
-                                    new Container
+                                Anchor = Anchor.Centre,
+                                Origin = Anchor.Centre,
+                                Child = new GridContainer
+                                {
+                                    RelativeSizeAxes = Axes.Both,
+                                    RowDimensions = new[]
                                     {
-                                        RelativeSizeAxes = Axes.Both,
-                                        Masking = true,
-                                        CornerRadius = 10,
-                                        Children = new Drawable[]
-                                        {
-                                            new Box
-                                            {
-                                                RelativeSizeAxes = Axes.Both,
-                                                Colour = colourProvider.Background6,
-                                            },
+                                        new Dimension(),
+                                        new Dimension(GridSizeMode.Absolute, row_padding),
+                                        new Dimension(GridSizeMode.AutoSize),
+                                    },
+                                    Content = new Drawable[]?[]
+                                    {
+                                        [
                                             new ScreenStack(),
-                                        }
+                                        ],
+                                        null,
+                                        [
+                                            new Container
+                                            {
+                                                Name = "Chat Area Space",
+                                                Anchor = Anchor.TopRight,
+                                                Origin = Anchor.TopRight,
+                                                Size = new Vector2(550, 130),
+                                                Margin = new MarginPadding { Bottom = row_padding }
+                                            }
+                                        ]
                                     }
-                                ],
-                                null,
-                                [
-                                    new Container
-                                    {
-                                        Name = "Chat Area Space",
-                                        Anchor = Anchor.TopRight,
-                                        Origin = Anchor.TopRight,
-                                        Size = new Vector2(550, 130),
-                                        Margin = new MarginPadding { Bottom = row_padding }
-                                    }
-                                ]
+                                }
                             }
                         }
                     }
@@ -208,6 +201,7 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
             if (this.IsCurrentScreen() && client.Room == null)
             {
                 Logger.Log($"{this} exiting due to loss of room or connection");
+                exitConfirmed = true;
                 this.Exit();
             }
         }
@@ -252,7 +246,7 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
 
             // Update global gameplay state to correspond to the new selection.
             // Retrieve the corresponding local beatmap, since we can't directly use the playlist's beatmap info
-            var localBeatmap = beatmapManager.QueryBeatmap($@"{nameof(BeatmapInfo.OnlineID)} == $0 AND {nameof(BeatmapInfo.MD5Hash)} == {nameof(BeatmapInfo.OnlineMD5Hash)}", item.BeatmapID);
+            var localBeatmap = beatmapManager.QueryOnlineBeatmapId(item.BeatmapID);
 
             if (localBeatmap != null)
             {
@@ -487,7 +481,12 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
                 InternalChild = new OsuContextMenuContainer
                 {
                     RelativeSizeAxes = Axes.Both,
-                    Child = chat
+                    Child = new InverseScalingDrawSizePreservingFillContainer
+                    {
+                        Anchor = Anchor.Centre,
+                        Origin = Anchor.Centre,
+                        Child = chat
+                    }
                 };
             }
         }

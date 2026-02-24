@@ -71,7 +71,7 @@ namespace osu.Game.Rulesets.Space
 
         public override HitObjectComposer CreateHitObjectComposer() => new SpaceHitObjectComposer(this);
 
-        protected override IEnumerable<HitResult> GetValidHitResults()
+        public override IEnumerable<HitResult> GetValidHitResults()
         {
             return
             [
