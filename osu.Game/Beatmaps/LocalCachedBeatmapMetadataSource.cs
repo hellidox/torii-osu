@@ -152,7 +152,7 @@ namespace osu.Game.Beatmaps
 
             try
             {
-                File.Delete(storage.GetFullPath(cache_database_name));
+                tryDeleteFile(storage.GetFullPath(cache_database_name), @"corruption purge");
             }
             catch (Exception ex)
             {
@@ -176,14 +176,14 @@ namespace osu.Game.Beatmaps
 
             cacheDownloadRequest.Failed += ex =>
             {
-                File.Delete(compressedCacheFilePath);
+                tryDeleteFile(compressedCacheFilePath, @"failed download cleanup");
 
                 // don't clobber the cache when refetching if the download didn't succeed. seems excessive.
                 // consequently, also null the download request to allow the existing cache to be used (see `Available`).
                 if (isRefetch)
                     cacheDownloadRequest = null;
                 else
-                    File.Delete(cacheFilePath);
+                    tryDeleteFile(cacheFilePath, @"failed initial cache fetch cleanup");
 
                 log($@"Online cache download failed: {ex}");
             };
@@ -217,11 +217,11 @@ namespace osu.Game.Beatmaps
                 {
                     log($@"Online cache extraction failed: {ex}");
                     // at this point clobber the cache regardless of whether we're refetching, because by this point who knows what state the cache file is in.
-                    File.Delete(cacheFilePath);
+                    tryDeleteFile(cacheFilePath, @"failed extraction cleanup");
                 }
                 finally
                 {
-                    File.Delete(compressedCacheFilePath);
+                    tryDeleteFile(compressedCacheFilePath, @"post-extraction cleanup");
                 }
             };
 
@@ -236,6 +236,19 @@ namespace osu.Game.Beatmaps
                     // Prevent throwing unobserved exceptions, as they will be logged from the network request to the log file anyway.
                 }
             });
+        }
+
+        private void tryDeleteFile(string path, string context)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch (Exception ex)
+            {
+                log($@"Failed to delete '{path}' during {context}: {ex.Message}");
+            }
         }
 
         public bool IsAtLeastVersion(int version)

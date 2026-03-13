@@ -94,7 +94,6 @@ namespace osu.Game.Database
                 processScoresWithMissingStatistics();
                 convertLegacyTotalScoreToStandardised();
                 upgradeScoreRanks();
-                backpopulateMissingSubmissionAndRankDates();
                 backpopulateUserTags();
             }, TaskCreationOptions.LongRunning).ContinueWith(t =>
             {

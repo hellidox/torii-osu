@@ -4,6 +4,19 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Stop osu debug session",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "$ErrorActionPreference='SilentlyContinue'; Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'dotnet.exe' -and $_.CommandLine -match 'torii-osu' -and $_.CommandLine -match 'osu-gu!\\.dll' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Get-Process 'osu-gu!' | Stop-Process -Force"
+            ],
+            "problemMatcher": []
+        },
+        {
             "label": "Build osu! (Debug)",
             "type": "shell",
             "command": "dotnet",
@@ -16,6 +29,15 @@
             ],
             "group": "build",
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Build osu! (Debug, Safe)",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Stop osu debug session",
+                "Build osu! (Debug)"
+            ],
+            "problemMatcher": []
         },
         {
             "label": "Build osu! (Release)",
@@ -31,6 +53,15 @@
             ],
             "group": "build",
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Build osu! (Release, Safe)",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Stop osu debug session",
+                "Build osu! (Release)"
+            ],
+            "problemMatcher": []
         },
         {
             "label": "Build tests (Debug)",

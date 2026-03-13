@@ -9,9 +9,7 @@ using osu.Framework.Extensions.Color4Extensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Effects;
 using osu.Framework.Graphics.Shapes;
-using osu.Framework.Graphics.Transforms;
 using osu.Framework.Graphics.UserInterface;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Containers;
@@ -19,7 +17,6 @@ using osu.Game.Graphics.Sprites;
 using osu.Game.Online.Multiplayer.MatchTypes.Matchmaking;
 using osu.Game.Overlays;
 using osuTK;
-using osuTK.Graphics;
 
 namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
 {
@@ -34,7 +31,7 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
         private const int round_count = 5;
 
         private OsuScrollContainer scroll = null!;
-        private FillFlowContainer<StageSegment> flow = null!;
+        private FillFlowContainer flow = null!;
 
         private CurrentRoundDisplay roundDisplay = null!;
 
@@ -49,16 +46,10 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
         {
             InternalChildren = new Drawable[]
             {
-                new BufferedContainer(cachedFrameBuffer: true)
+                new Box
                 {
+                    Colour = colourProvider.Dark6,
                     RelativeSizeAxes = Axes.Both,
-                    Colour = ColourInfo.GradientVertical(Color4.White, Color4.Transparent),
-                    Alpha = 0.8f,
-                    Child = new Box
-                    {
-                        Colour = ColourInfo.GradientHorizontal(colourProvider.Dark6, colourProvider.Dark6.Opacity(0.5f)),
-                        RelativeSizeAxes = Axes.Both,
-                    }
                 },
                 new Container
                 {
@@ -72,7 +63,7 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
                             ClampExtension = 0,
                             RelativeSizeAxes = Axes.X,
                             Height = HEIGHT,
-                            Child = flow = new FillFlowContainer<StageSegment>
+                            Child = flow = new FillFlowContainer
                             {
                                 Padding = new MarginPadding { Horizontal = 2000 },
                                 AutoSizeAxes = Axes.Both,
@@ -92,6 +83,15 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
                             Y = 32,
                             Anchor = Anchor.Centre,
                             Origin = Anchor.Centre
+                        },
+                        new Box
+                        {
+                            Colour = ColourInfo.GradientHorizontal(
+                                colourProvider.Dark4,
+                                colourProvider.Dark5.Opacity(0)
+                            ),
+                            RelativeSizeAxes = Axes.Y,
+                            Width = 240,
                         },
                         roundDisplay = new CurrentRoundDisplay
                         {
@@ -119,27 +119,12 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
         protected override void Update()
         {
             base.Update();
-            var bubble = flow.FirstOrDefault(b => b.Active);
+            var bubble = flow.OfType<StageSegment>().FirstOrDefault(b => b.Active);
 
             if (bubble != null)
             {
                 scroll.ScrollTo(flow.Padding.Left + bubble.X + bubble.Progress * bubble.DrawWidth - scroll.DrawWidth / 2);
                 roundDisplay.Round = bubble.Round;
-            }
-        }
-
-        protected override void UpdateAfterChildren()
-        {
-            base.UpdateAfterChildren();
-
-            foreach (var segment in flow)
-            {
-                if (segment.Active)
-                    return;
-
-                float offset = segment.ToSpaceOfOtherDrawable(Vector2.Zero, this).X;
-
-                segment.Alpha = float.Clamp(offset / 300, 0.1f, 0.5f);
             }
         }
 
@@ -173,55 +158,47 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
             {
                 Size = new Vector2(76);
 
-                progress = new CircularProgress
-                {
-                    Anchor = Anchor.Centre,
-                    Origin = Anchor.Centre,
-                    Colour = colours.Colour2,
-                    InnerRadius = 0.1f,
-                    RelativeSizeAxes = Axes.Both,
-                    RoundedCaps = true,
-                };
                 InternalChildren = new Drawable[]
                 {
                     new Circle
                     {
-                        Colour = colours.Dark4,
+                        Colour = ColourInfo.GradientVertical(
+                            colours.Dark2,
+                            colours.Dark4
+                        ),
                         RelativeSizeAxes = Axes.Both,
                     },
-                    (progress = new CircularProgress
+                    progress = new CircularProgress
                     {
                         Anchor = Anchor.Centre,
                         Origin = Anchor.Centre,
-                        Colour = colours.Colour2,
+                        Colour = ColourInfo.GradientVertical(
+                            colours.Light1,
+                            colours.Dark2
+                        ),
                         InnerRadius = 0.1f,
-                        Size = Size,
-                    }).WithEffect(new GlowEffect
-                    {
-                        Colour = colours.Colour2,
-                        BlurSigma = new Vector2(10),
-                        Strength = 2f,
-                        Placement = EffectPlacement.Behind,
-                        PadExtent = true,
-                    }),
+                        RelativeSizeAxes = Axes.Both,
+                    },
                     innerCircle = new Circle
                     {
                         Alpha = 0.2f,
                         Blending = BlendingParameters.Additive,
                         Anchor = Anchor.Centre,
                         Origin = Anchor.Centre,
-                        Colour = colours.Dark1,
+                        Colour = ColourInfo.GradientVertical(
+                            colours.Dark1,
+                            colours.Dark2
+                        ),
                         Scale = new Vector2(0.9f),
                         RelativeSizeAxes = Axes.Both,
                     },
                     new OsuSpriteText
                     {
-                        Y = 13,
+                        Y = 10,
                         Anchor = Anchor.TopCentre,
                         Origin = Anchor.TopCentre,
                         Font = OsuFont.Style.Caption2,
                         Text = "Round",
-                        Colour = colours.Content2
                     },
                     text = new OsuSpriteText
                     {
@@ -268,10 +245,10 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Match
                     round = value.Value;
 
                     this.ScaleTo(6, 1000, Easing.OutPow10)
-                        .MoveToY(300, 1000, Easing.OutPow10)
+                        .MoveToY(-300, 1000, Easing.OutPow10)
                         .Then()
-                        .MoveToY(0, 500, new CubicBezierEasingFunction(0.8, 0, 0.6, 1))
-                        .ScaleTo(1, 500, new CubicBezierEasingFunction(0.8, 0, 0.6, 1));
+                        .MoveToY(0, 500, Easing.InQuart)
+                        .ScaleTo(1, 500, Easing.InQuart);
 
                     swishChannel = swishSample?.GetChannel();
 

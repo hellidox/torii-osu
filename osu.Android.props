@@ -1,4 +1,7 @@
 <Project>
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\osu-framework\osu.Framework.Android\osu.Framework.Android.csproj" />
+  </ItemGroup>
   <PropertyGroup>
     <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
     <RuntimeIdentifiers>android-x86;android-arm;android-arm64</RuntimeIdentifiers>
@@ -16,9 +19,6 @@
     <AndroidSigningKeyPass Condition="'$(AndroidSigningKeyPass)' != '' AND '$(AndroidKeyStore)' == 'true'">$(AndroidSigningKeyPass)</AndroidSigningKeyPass>
     <AndroidSigningStorePass Condition="'$(AndroidSigningStorePass)' != '' AND '$(AndroidKeyStore)' == 'true'">$(AndroidSigningStorePass)</AndroidSigningStorePass>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="ppy.osu.Framework.Android" Version="2026.209.0" />
-  </ItemGroup>
   <PropertyGroup>
     <!-- Fody does not handle Android build well, and warns when unchanged.
          Since Realm objects are not declared directly in Android projects, simply disable Fody. -->

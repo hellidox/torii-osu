@@ -57,10 +57,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="LowLatency\**\*.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Folder Include="LowLatency\AMD\" />
   </ItemGroup>
 </Project>

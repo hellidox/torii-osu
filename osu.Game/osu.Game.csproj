@@ -45,7 +45,6 @@ Modified by GooGuTeam</PackageReleaseNotes>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Realm" Version="20.1.0" />
-    <PackageReference Include="ppy.osu.Framework" Version="2026.209.0" />
     <PackageReference Include="ppy.osu.Game.Resources" Version="2026.223.0" />
     <PackageReference Include="Sentry" Version="5.1.1" />
     <!-- Held back due to 0.34.0 failing AOT compilation on ZstdSharp.dll dependency. -->
@@ -60,5 +59,8 @@ Modified by GooGuTeam</PackageReleaseNotes>
     <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
     <PackageReference Include="System.Runtime.Handles" Version="4.3.0" />
     <PackageReference Include="Uno.UI" Version="5.6.99" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\osu-framework\osu.Framework\osu.Framework.csproj" />
   </ItemGroup>
 </Project>

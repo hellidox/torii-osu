@@ -22,6 +22,9 @@
                                       "../osu-framework/osu.Framework.Android/osu.Framework.Android.csproj",
                                       "../osu-framework/osu.Framework/osu.Framework.csproj",
                                       "../osu-framework/osu.Framework.NativeLibs/osu.Framework.NativeLibs.csproj",
+                                      "../osu-framework/osu.Framework.Android/osu.Framework.Android.csproj",
+                                      "../osu-framework/osu.Framework/osu.Framework.csproj",
+                                      "../osu-framework/osu.Framework.NativeLibs/osu.Framework.NativeLibs.csproj",
                                       "../osu-framework/osu.Framework.Android/osu.Framework.Android.csproj"
                                   ]
                  }

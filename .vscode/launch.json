@@ -7,10 +7,11 @@
             "request": "launch",
             "program": "dotnet",
             "args": [
-                "${workspaceRoot}/osu.Desktop/bin/Debug/net8.0/osu!.dll"
+                "${workspaceRoot}/osu.Desktop/bin/Debug/net8.0/osu-gu!.dll",
+                "--debug-client-id=1"
             ],
             "cwd": "${workspaceRoot}",
-            "preLaunchTask": "Build osu! (Debug)",
+            "preLaunchTask": "Build osu! (Debug, Safe)",
             "console": "internalConsole"
         },
         {
@@ -19,10 +20,11 @@
             "request": "launch",
             "program": "dotnet",
             "args": [
-                "${workspaceRoot}/osu.Desktop/bin/Release/net8.0/osu!.dll"
+                "${workspaceRoot}/osu.Desktop/bin/Release/net8.0/osu-gu!.dll",
+                "--debug-client-id=1"
             ],
             "cwd": "${workspaceRoot}",
-            "preLaunchTask": "Build osu! (Release)",
+            "preLaunchTask": "Build osu! (Release, Safe)",
             "console": "internalConsole"
         },
         {
@@ -55,11 +57,12 @@
             "request": "launch",
             "program": "dotnet",
             "args": [
-                "${workspaceRoot}/osu.Desktop/bin/Debug/net8.0/osu!.dll",
+                "${workspaceRoot}/osu.Desktop/bin/Debug/net8.0/osu-gu!.dll",
+                "--debug-client-id=1",
                 "--tournament"
             ],
             "cwd": "${workspaceRoot}",
-            "preLaunchTask": "Build osu! (Debug)",
+            "preLaunchTask": "Build osu! (Debug, Safe)",
             "console": "internalConsole"
         },
         {
@@ -68,11 +71,12 @@
             "request": "launch",
             "program": "dotnet",
             "args": [
-                "${workspaceRoot}/osu.Desktop/bin/Release/net8.0/osu!.dll",
+                "${workspaceRoot}/osu.Desktop/bin/Release/net8.0/osu-gu!.dll",
+                "--debug-client-id=1",
                 "--tournament"
             ],
             "cwd": "${workspaceRoot}",
-            "preLaunchTask": "Build osu! (Release)",
+            "preLaunchTask": "Build osu! (Release, Safe)",
             "console": "internalConsole"
         },
         {

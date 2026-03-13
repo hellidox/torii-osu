@@ -68,7 +68,7 @@ namespace osu.Game.Graphics.UserInterfaceV2
 
         protected override DirectorySelectorDirectory CreateParentDirectoryItem(DirectoryInfo directory) => new OsuDirectorySelectorParentDirectory(directory);
 
-        protected override DirectorySelectorDirectory CreateDirectoryItem(DirectoryInfo directory, LocalisableString? displayName = null) => new OsuDirectorySelectorDirectory(directory, displayName);
+        protected override DirectorySelectorDirectory CreateDirectoryItem(DirectoryInfo directory, string displayName = null) => new OsuDirectorySelectorDirectory(directory, displayName);
 
         protected override void NotifySelectionError() => this.FlashColour(Colour4.Red, 300);
     }

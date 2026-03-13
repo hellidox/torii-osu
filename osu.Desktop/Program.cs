@@ -6,6 +6,7 @@ using System.IO;
 using System.Runtime.Versioning;
 using osu.Desktop.LegacyIpc;
 using osu.Desktop.Windows;
+using osu.Desktop.LowLatency;
 using osu.Framework;
 using osu.Framework.Development;
 using osu.Framework.Logging;
@@ -138,6 +139,29 @@ namespace osu.Desktop
                     host.Run(new TournamentGame());
                 else
                 {
+                    // Initialize low latency provider based on GPU vendor
+                    if (NVAPI.Available)
+                    {
+                        host.SetLowLatencyProvider(new NVAPIDirect3D11LowLatencyProvider());
+                        Logger.Log("NVIDIA Reflex low latency provider initialized.");
+                    }
+                    else if (AMDAPI.Available)
+                    {
+                        if (AMDAPI.HasAntiLag2Support)
+                        {
+                            host.SetLowLatencyProvider(new AMDAntiLag2Direct3D11LowLatencyProvider());
+                            Logger.Log($"AMD Anti-Lag 2 low latency provider initialized for {AMDAPI.GPUName}.");
+                        }
+                        else
+                        {
+                            Logger.Log($"AMD GPU detected ({AMDAPI.GPUName}) but Anti-Lag 2 is not available. This requires AMD RDNA 1-based products (RX 5000 Series and newer) with recent drivers containing amd_antilag_dx11.dll.");
+                        }
+                    }
+                    else
+                    {
+                        Logger.Log("No compatible low latency provider available (requires NVIDIA or AMD GPU with recent drivers).");
+                    }
+
                     host.Run(new OsuGameDesktop(args)
                     {
                         IsFirstRun = isFirstRun
