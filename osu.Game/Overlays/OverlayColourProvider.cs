@@ -1,6 +1,7 @@
 ﻿// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using osuTK.Graphics;
 
 namespace osu.Game.Overlays
@@ -12,6 +13,11 @@ namespace osu.Game.Overlays
         /// </summary>
         public int Hue { get; private set; }
 
+        /// <summary>
+        /// Fired when <see cref="Hue"/> changes and colour shades should be reapplied.
+        /// </summary>
+        public event Action? ColoursChanged;
+
         public OverlayColourProvider(OverlayColourScheme colourScheme)
             : this(colourScheme.GetHue())
         {
@@ -19,7 +25,7 @@ namespace osu.Game.Overlays
 
         public OverlayColourProvider(int hue)
         {
-            Hue = hue;
+            Hue = normaliseHue(hue);
         }
 
         // Note that the following five colours are also defined in `OsuColour` as `{colourScheme}{0,1,2,3,4}`.
@@ -55,17 +61,34 @@ namespace osu.Game.Overlays
 
         /// <summary>
         /// Changes the <see cref="Hue"/> to a different degree.
-        /// Note that this does not trigger any kind of signal to any drawable that received colours from here, all drawables need to be updated manually.
         /// </summary>
         /// <param name="colourScheme">The proposed colour scheme.</param>
         public void ChangeColourScheme(OverlayColourScheme colourScheme) => ChangeColourScheme(colourScheme.GetHue());
 
         /// <summary>
         /// Changes the <see cref="Hue"/> to a different degree.
-        /// Note that this does not trigger any kind of signal to any drawable that received colours from here, all drawables need to be updated manually.
         /// </summary>
         /// <param name="hue">The proposed hue degree.</param>
-        public void ChangeColourScheme(int hue) => Hue = hue;
+        public void ChangeColourScheme(int hue)
+        {
+            int normalisedHue = normaliseHue(hue);
+
+            if (Hue == normalisedHue)
+                return;
+
+            Hue = normalisedHue;
+            ColoursChanged?.Invoke();
+        }
+
+        private static int normaliseHue(int hue)
+        {
+            int normalised = hue % 360;
+
+            if (normalised < 0)
+                normalised += 360;
+
+            return normalised;
+        }
 
         private Color4 getColour(float saturation, float lightness) => Framework.Graphics.Colour4.FromHSL(Hue / 360f, saturation, lightness);
     }

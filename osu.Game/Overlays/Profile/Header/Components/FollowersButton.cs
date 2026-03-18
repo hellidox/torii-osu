@@ -116,7 +116,9 @@ namespace osu.Game.Overlays.Profile.Header.Components
                     HideLoadingLayer();
                 };
 
-                api.Queue(req);
+                // Friend toggles should feel immediate even when the normal API queue is busy
+                // with profile/background requests.
+                _ = api.PerformAsync(req);
             };
         }
 

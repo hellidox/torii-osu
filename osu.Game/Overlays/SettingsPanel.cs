@@ -75,6 +75,8 @@ namespace osu.Game.Overlays
 
         [Cached]
         private OverlayColourProvider colourProvider = new OverlayColourProvider(OverlayColourScheme.Purple);
+        private IDisposable? customUiHueBinding;
+        private Box panelBackground = null!;
 
         protected SettingsPanel(bool showBackButton)
         {
@@ -97,7 +99,7 @@ namespace osu.Game.Overlays
                 RelativeSizeAxes = Axes.Y,
                 Children = new Drawable[]
                 {
-                    new Box
+                    panelBackground = new Box
                     {
                         Anchor = Anchor.TopRight,
                         Origin = Anchor.TopRight,
@@ -160,6 +162,12 @@ namespace osu.Game.Overlays
             });
 
             CreateSections()?.ForEach(AddSection);
+
+            customUiHueBinding = CustomUiHueHelper.BindHue(config, OverlayColourScheme.Purple.GetHue(), CustomUiHueScope.SettingsPanel, hue =>
+            {
+                colourProvider.ChangeColourScheme(hue);
+                updateTheme();
+            });
         }
 
         protected void AddSection(SettingsSection section)
@@ -280,6 +288,14 @@ namespace osu.Game.Overlays
             });
         }
 
+        private void updateTheme()
+        {
+            if (panelBackground != null)
+                panelBackground.Colour = colourProvider.Background4;
+
+            SectionsContainer?.UpdateTheme();
+        }
+
         private IEnumerable<SidebarIconButton> createSidebarButtons()
         {
             foreach (var section in SectionsContainer)
@@ -298,6 +314,17 @@ namespace osu.Game.Overlays
             }
         }
 
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing)
+            {
+                customUiHueBinding?.Dispose();
+                customUiHueBinding = null;
+            }
+
+            base.Dispose(isDisposing);
+        }
+
         private partial class NonMaskedContent : Container<Drawable>
         {
             // masking breaks the pan-out transform with nested sub-settings panels.
@@ -307,6 +334,7 @@ namespace osu.Game.Overlays
         public partial class SettingsSectionsContainer : SectionsContainer<SettingsSection>
         {
             public SearchContainer<SettingsSection> SearchContainer;
+            private OverlayColourProvider colourProvider = null!;
 
             public string SearchTerm
             {
@@ -325,6 +353,8 @@ namespace osu.Game.Overlays
             [BackgroundDependencyLoader]
             private void load(OverlayColourProvider colourProvider)
             {
+                this.colourProvider = colourProvider;
+
                 HeaderBackground = new Box
                 {
                     Colour = colourProvider.Background5,
@@ -332,6 +362,13 @@ namespace osu.Game.Overlays
                 };
 
                 SearchContainer.FilterCompleted += InvalidateScrollPosition;
+                colourProvider.ColoursChanged += UpdateTheme;
+            }
+
+            public void UpdateTheme()
+            {
+                if (HeaderBackground != null)
+                    HeaderBackground.Colour = colourProvider.Background5;
             }
 
             protected override void UpdateAfterChildren()
@@ -340,6 +377,14 @@ namespace osu.Game.Overlays
 
                 // no null check because the usage of this class is strict
                 HeaderBackground!.Alpha = -ExpandableHeader!.Y / ExpandableHeader.LayoutSize.Y;
+            }
+
+            protected override void Dispose(bool isDisposing)
+            {
+                if (isDisposing)
+                    colourProvider.ColoursChanged -= UpdateTheme;
+
+                base.Dispose(isDisposing);
             }
         }
     }

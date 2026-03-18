@@ -1,6 +1,7 @@
 ﻿// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 using osu.Framework.Allocation;
 using osu.Framework.Extensions.Color4Extensions;
@@ -39,6 +40,7 @@ namespace osu.Game.Overlays
         private readonly Box background;
         private readonly Container content;
         private readonly int defaultHue;
+        private IDisposable? customUiHueBinding;
 
         protected FullscreenOverlay(OverlayColourScheme colourScheme)
         {
@@ -79,8 +81,11 @@ namespace osu.Game.Overlays
         [BackgroundDependencyLoader]
         private void load(OsuConfigManager config)
         {
-            ColourProvider.ChangeColourScheme(CustomUiHueHelper.ResolveHue(config, defaultHue, CustomUiHueScope.Overlays));
-            UpdateColours();
+            customUiHueBinding = CustomUiHueHelper.BindHue(config, defaultHue, CustomUiHueScope.Overlays, hue =>
+            {
+                ColourProvider.ChangeColourScheme(hue);
+                UpdateColours();
+            });
         }
 
         protected abstract T CreateHeader();
@@ -130,6 +135,17 @@ namespace osu.Game.Overlays
 
         protected virtual void PopOutComplete()
         {
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing)
+            {
+                customUiHueBinding?.Dispose();
+                customUiHueBinding = null;
+            }
+
+            base.Dispose(isDisposing);
         }
     }
 }

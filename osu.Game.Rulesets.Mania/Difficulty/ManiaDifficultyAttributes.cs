@@ -34,7 +34,6 @@ namespace osu.Game.Rulesets.Mania.Difficulty
                 yield return v;
 
             yield return (ATTRIB_ID_DIFFICULTY, StarRating);
-            yield return (ATTRIB_ID_GREAT_HIT_WINDOW, GreatHitWindow);
         }
 
         public override void FromDatabaseAttributes(IReadOnlyDictionary<int, double> values, IBeatmapOnlineInfo onlineInfo)
@@ -42,7 +41,6 @@ namespace osu.Game.Rulesets.Mania.Difficulty
             base.FromDatabaseAttributes(values, onlineInfo);
 
             StarRating = values[ATTRIB_ID_DIFFICULTY];
-            GreatHitWindow = values[ATTRIB_ID_GREAT_HIT_WINDOW];
         }
     }
 }

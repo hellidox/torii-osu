@@ -53,6 +53,7 @@ namespace osu.Game.Screens.Footer
         private FillFlowContainer<ScreenFooterButton> buttonsFlow = null!;
         private Container overlayContentContainer = null!;
         private Container<ScreenFooterButton> hiddenButtonsContainer = null!;
+        private IDisposable? customUiHueBinding;
 
         private LogoTrackingContainer logoTrackingContainer = null!;
         private IDisposable? logoTracking;
@@ -148,6 +149,17 @@ namespace osu.Game.Screens.Footer
                     f.Position = new Vector2(-76, -36);
                 })),
             };
+
+            customUiHueBinding = CustomUiHueHelper.BindHue(config, OverlayColourScheme.Blue.GetHue(), CustomUiHueScope.Menu, hue =>
+            {
+                if (ActiveOverlay != null)
+                    return;
+
+                if (background == null)
+                    colourProvider.ChangeColourScheme(hue);
+                else
+                    updateColourScheme(hue);
+            });
         }
 
         private ScheduledDelegate? changeLogoDepthDelegate;
@@ -373,6 +385,17 @@ namespace osu.Game.Screens.Footer
             }
 
             BackButtonPressed?.Invoke();
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing)
+            {
+                customUiHueBinding?.Dispose();
+                customUiHueBinding = null;
+            }
+
+            base.Dispose(isDisposing);
         }
 
         public partial class BackReceptor : Drawable, IKeyBindingHandler<GlobalAction>

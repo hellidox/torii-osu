@@ -7,6 +7,7 @@ using osu.Framework.Development;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Cursor;
+using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.UserInterface;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Containers;
@@ -16,6 +17,7 @@ using osu.Game.Localisation;
 using osu.Game.Rulesets;
 using osuTK;
 using osuTK.Graphics;
+using FontAwesome = osu.Framework.Graphics.Sprites.FontAwesome;
 
 namespace osu.Game.Overlays.Settings
 {
@@ -54,7 +56,13 @@ namespace osu.Game.Overlays.Settings
                 {
                     Anchor = Anchor.TopCentre,
                     Origin = Anchor.TopCentre,
-                }
+                },
+                new ToriiCreditsDisplay
+                {
+                    Anchor = Anchor.TopCentre,
+                    Origin = Anchor.TopCentre,
+                    Margin = new MarginPadding { Top = 8 },
+                },
             };
 
             foreach (var ruleset in rulesets.AvailableRulesets)
@@ -76,6 +84,55 @@ namespace osu.Game.Overlays.Settings
                 {
                     RulesetStore.LogRulesetFailure(ruleset, e);
                 }
+            }
+        }
+
+        private partial class ToriiCreditsDisplay : FillFlowContainer
+        {
+            public ToriiCreditsDisplay()
+            {
+                AutoSizeAxes = Axes.Both;
+                Direction = FillDirection.Vertical;
+                Spacing = new Vector2(2);
+                Anchor = Anchor.TopCentre;
+                Origin = Anchor.TopCentre;
+
+                Children = new Drawable[]
+                {
+                    new FillFlowContainer
+                    {
+                        AutoSizeAxes = Axes.Both,
+                        Anchor = Anchor.TopCentre,
+                        Origin = Anchor.TopCentre,
+                        Spacing = new Vector2(4),
+                        Children = new Drawable[]
+                        {
+                            new SpriteIcon
+                            {
+                                Anchor = Anchor.CentreLeft,
+                                Origin = Anchor.CentreLeft,
+                                Icon = FontAwesome.Solid.Heart,
+                                Size = new Vector2(10),
+                                Colour = new Color4(255, 102, 171, 255),
+                            },
+                            new OsuSpriteText
+                            {
+                                Anchor = Anchor.CentreLeft,
+                                Origin = Anchor.CentreLeft,
+                                Text = "osu! Torii",
+                                Font = OsuFont.GetFont(size: 15, weight: FontWeight.Bold),
+                            },
+                        }
+                    },
+                    new OsuSpriteText
+                    {
+                        Anchor = Anchor.TopCentre,
+                        Origin = Anchor.TopCentre,
+                        Text = "Huge thanks to Shigetiro and GooGuTeam.\nTorii is built on top of their extensive work.",
+                        Font = OsuFont.GetFont(size: 11, weight: FontWeight.Regular),
+                        Colour = new Color4(210, 210, 210, 255),
+                    },
+                };
             }
         }
 

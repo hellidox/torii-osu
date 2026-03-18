@@ -43,6 +43,7 @@ namespace osu.Game.Screens.SelectV2
         private Drawable hoverLayer = null!;
 
         private Drawable keyboardSelectionLayer = null!;
+        private OverlayColourProvider colourProvider = null!;
 
         private PulsatingBox selectionLayer = null!;
 
@@ -99,6 +100,8 @@ namespace osu.Game.Screens.SelectV2
         [BackgroundDependencyLoader]
         private void load(OverlayColourProvider colourProvider, OsuColour colours)
         {
+            this.colourProvider = colourProvider;
+
             Anchor = Anchor.TopRight;
             Origin = Anchor.TopRight;
 
@@ -209,6 +212,7 @@ namespace osu.Game.Screens.SelectV2
         protected override void LoadComplete()
         {
             base.LoadComplete();
+            colourProvider.ColoursChanged += updateTheme;
 
             Expanded.BindValueChanged(_ =>
             {
@@ -237,6 +241,16 @@ namespace osu.Game.Screens.SelectV2
             }, true);
         }
 
+        private void updateTheme()
+        {
+            if (keyboardSelectionLayer != null)
+            {
+                keyboardSelectionLayer.Colour = ColourInfo.GradientHorizontal(
+                    colourProvider.Highlight1.Opacity(0.1f),
+                    colourProvider.Highlight1.Opacity(0.4f));
+            }
+        }
+
         protected override void PrepareForUse()
         {
             base.PrepareForUse();
@@ -261,6 +275,14 @@ namespace osu.Game.Screens.SelectV2
 
             // Important to set this to null to handle reuse scenarios correctly, see `Item` implementation.
             item = null;
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing && colourProvider != null)
+                colourProvider.ColoursChanged -= updateTheme;
+
+            base.Dispose(isDisposing);
         }
 
         protected override bool OnClick(ClickEvent e)

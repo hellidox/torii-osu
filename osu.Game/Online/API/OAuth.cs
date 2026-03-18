@@ -17,6 +17,8 @@ namespace osu.Game.Online.API
         private readonly string clientId;
         private readonly string clientSecret;
         private readonly string endpoint;
+        private readonly string versionHash;
+        private readonly string clientVersion;
 
         public readonly Bindable<OAuthToken> Token = new Bindable<OAuthToken>();
 
@@ -26,7 +28,7 @@ namespace osu.Game.Online.API
             set => Token.Value = string.IsNullOrEmpty(value) ? null : OAuthToken.Parse(value);
         }
 
-        internal OAuth(string clientId, string clientSecret, string endpoint)
+        internal OAuth(string clientId, string clientSecret, string endpoint, string versionHash = null, string clientVersion = null)
         {
             Debug.Assert(clientId != null);
             Debug.Assert(clientSecret != null);
@@ -35,6 +37,8 @@ namespace osu.Game.Online.API
             this.clientId = clientId;
             this.clientSecret = clientSecret;
             this.endpoint = endpoint;
+            this.versionHash = versionHash;
+            this.clientVersion = clientVersion;
         }
 
         internal void AuthenticateWithLogin(string username, string password)
@@ -47,7 +51,9 @@ namespace osu.Game.Online.API
                 Url = $@"{endpoint}/oauth/token",
                 Method = HttpMethod.Post,
                 ClientId = clientId,
-                ClientSecret = clientSecret
+                ClientSecret = clientSecret,
+                VersionHash = versionHash,
+                ClientVersion = clientVersion
             };
 
             using (accessTokenRequest)
@@ -89,7 +95,9 @@ namespace osu.Game.Online.API
                     Url = $@"{endpoint}/oauth/token",
                     Method = HttpMethod.Post,
                     ClientId = clientId,
-                    ClientSecret = clientSecret
+                    ClientSecret = clientSecret,
+                    VersionHash = versionHash,
+                    ClientVersion = clientVersion
                 };
 
                 using (refreshRequest)
@@ -201,6 +209,8 @@ namespace osu.Game.Online.API
 
             internal string ClientId;
             internal string ClientSecret;
+            internal string VersionHash;
+            internal string ClientVersion;
 
             protected override void PrePerform()
             {
@@ -208,6 +218,11 @@ namespace osu.Game.Online.API
                 AddParameter("client_id", ClientId);
                 AddParameter("client_secret", ClientSecret);
                 AddParameter("scope", "*");
+
+                if (!string.IsNullOrEmpty(VersionHash))
+                    AddParameter("version_hash", VersionHash);
+                if (!string.IsNullOrEmpty(ClientVersion))
+                    AddParameter("version", ClientVersion);
 
                 base.PrePerform();
             }

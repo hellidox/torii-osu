@@ -169,13 +169,17 @@ namespace osu.Game.Screens.SelectV2
 
         private Bindable<bool> configBackgroundBlur = null!;
         private Bindable<bool> showConvertedBeatmaps = null!;
+        private IDisposable? customUiHueBinding;
 
         private IDisposable? modSelectOverlayRegistration;
 
         [BackgroundDependencyLoader]
         private void load(AudioManager audio, OsuConfigManager config)
         {
-            colourProvider.ChangeColourScheme(CustomUiHueHelper.ResolveHue(config, OverlayColourScheme.Blue.GetHue(), CustomUiHueScope.Menu));
+            customUiHueBinding = CustomUiHueHelper.BindHue(config, OverlayColourScheme.Blue.GetHue(), CustomUiHueScope.Menu, hue =>
+            {
+                colourProvider.ChangeColourScheme(hue);
+            });
 
             errorSample = audio.Samples.Get(@"UI/generic-error");
 
@@ -1280,6 +1284,7 @@ namespace osu.Game.Screens.SelectV2
 
         protected override void Dispose(bool isDisposing)
         {
+            customUiHueBinding?.Dispose();
             base.Dispose(isDisposing);
             modSelectOverlayRegistration?.Dispose();
         }

@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
@@ -68,6 +69,8 @@ namespace osu.Game.Overlays
 
         [Cached]
         private readonly OverlayColourProvider colourProvider = new OverlayColourProvider(OverlayColourScheme.Pink);
+        private IDisposable? customUiHueBinding;
+        private Box background = null!;
 
         [Cached]
         private readonly Bindable<Channel?> currentChannel = new Bindable<Channel?>();
@@ -115,7 +118,7 @@ namespace osu.Game.Overlays
                     Padding = new MarginPadding { Top = top_bar_height },
                     Children = new Drawable[]
                     {
-                        new Box
+                        background = new Box
                         {
                             RelativeSizeAxes = Axes.Both,
                             Colour = colourProvider.Background4,
@@ -173,6 +176,14 @@ namespace osu.Game.Overlays
                     }
                 }
             };
+
+            customUiHueBinding = CustomUiHueHelper.BindHue(config, OverlayColourScheme.Pink.GetHue(), CustomUiHueScope.Overlays, hue =>
+            {
+                colourProvider.ChangeColourScheme(hue);
+
+                if (background != null)
+                    background.Colour = colourProvider.Background4;
+            });
         }
 
         protected override void LoadComplete()
@@ -448,6 +459,17 @@ namespace osu.Game.Overlays
                 default:
                     return true;
             }
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing)
+            {
+                customUiHueBinding?.Dispose();
+                customUiHueBinding = null;
+            }
+
+            base.Dispose(isDisposing);
         }
     }
 }

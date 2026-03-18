@@ -153,6 +153,7 @@ namespace osu.Game.Graphics.UserInterfaceV2
             focusManager = GetContainingFocusManager()!;
             textBox.Focused.BindValueChanged(_ => updateState());
 
+            colourProvider.ColoursChanged += updateState;
             current.BindValueChanged(_ => ValueChanged?.Invoke());
             current.BindDisabledChanged(_ => updateState(), true);
         }
@@ -251,5 +252,13 @@ namespace osu.Game.Graphics.UserInterfaceV2
         public IEnumerable<LocalisableString> FilterTerms => Caption.Yield();
 
         public float MainDrawHeight => DrawHeight;
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing)
+                colourProvider.ColoursChanged -= updateState;
+
+            base.Dispose(isDisposing);
+        }
     }
 }

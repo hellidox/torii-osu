@@ -53,6 +53,8 @@ namespace osu.Game.Overlays
 
         [Cached]
         private OverlayColourProvider colourProvider = new OverlayColourProvider(OverlayColourScheme.Purple);
+        private IDisposable? customUiHueBinding;
+        private Box background = null!;
 
         public override bool ReceivePositionalInputAt(Vector2 screenSpacePos)
         {
@@ -100,7 +102,7 @@ namespace osu.Game.Overlays
                     },
                     Children = new Drawable[]
                     {
-                        new Box
+                        background = new Box
                         {
                             RelativeSizeAxes = Axes.Both,
                             Colour = colourProvider.Background4,
@@ -128,6 +130,14 @@ namespace osu.Game.Overlays
                     }
                 },
             };
+
+            customUiHueBinding = CustomUiHueHelper.BindHue(config, OverlayColourScheme.Purple.GetHue(), CustomUiHueScope.Overlays, hue =>
+            {
+                colourProvider.ChangeColourScheme(hue);
+
+                if (background != null)
+                    background.Colour = colourProvider.Background4;
+            });
         }
 
         private ScheduledDelegate? notificationsEnabler;
@@ -281,6 +291,17 @@ namespace osu.Game.Overlays
         private void updateCounts()
         {
             unreadCount.Value = sections.Select(c => c.UnreadCount).Sum() + toastTray.UnreadCount;
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing)
+            {
+                customUiHueBinding?.Dispose();
+                customUiHueBinding = null;
+            }
+
+            base.Dispose(isDisposing);
         }
     }
 }

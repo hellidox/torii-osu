@@ -63,8 +63,17 @@ namespace osu.Game.Graphics.UserInterfaceV2
         {
             base.LoadComplete();
 
+            colourProvider.ColoursChanged += updateStyle;
             updateStyle();
             FinishTransforms(true);
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing)
+                colourProvider.ColoursChanged -= updateStyle;
+
+            base.Dispose(isDisposing);
         }
 
         public void Flash()

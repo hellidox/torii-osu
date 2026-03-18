@@ -72,7 +72,7 @@ namespace osu.Game.Database
         [Resolved]
         private OsuConfigManager config { get; set; } = null!;
 
-        private LocalCachedBeatmapMetadataSource localMetadataSource = null!;
+        private LocalCachedBeatmapMetadataSource? localMetadataSource;
 
         protected virtual int TimeToSleepDuringGameplay => 30000;
 
@@ -80,7 +80,10 @@ namespace osu.Game.Database
         {
             base.LoadComplete();
 
-            localMetadataSource = new LocalCachedBeatmapMetadataSource(storage);
+            if (shouldUsePpyOnlineMetadataCache())
+                localMetadataSource = new LocalCachedBeatmapMetadataSource(storage);
+            else
+                Logger.Log("Skipping local ppy metadata cache initialisation because a non-ppy endpoint is configured.");
 
             ProcessingTask = Task.Factory.StartNew(() =>
             {
@@ -105,6 +108,12 @@ namespace osu.Game.Database
 
                 Logger.Log("Finished background data store processing!");
             });
+        }
+
+        private bool shouldUsePpyOnlineMetadataCache()
+        {
+            string websiteUrl = api.Endpoints.WebsiteUrl;
+            return websiteUrl.EndsWith(@".ppy.sh", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -535,6 +544,12 @@ namespace osu.Game.Database
 
         private void backpopulateMissingSubmissionAndRankDates()
         {
+            if (localMetadataSource == null)
+            {
+                Logger.Log("Skipping submission/rank date backpopulation on non-ppy endpoint.");
+                return;
+            }
+
             if (!localMetadataSource.Available)
             {
                 Logger.Log("Cannot backpopulate missing submission/rank dates because the local metadata cache is missing.");
@@ -633,6 +648,12 @@ namespace osu.Game.Database
 
         private void backpopulateUserTags()
         {
+            if (localMetadataSource == null)
+            {
+                Logger.Log("Skipping user tag backpopulation on non-ppy endpoint.");
+                return;
+            }
+
             if (!localMetadataSource.Available || !localMetadataSource.IsAtLeastVersion(3))
             {
                 Logger.Log(@"Local metadata cache has too low version to backpopulate user tags, attempting refetch...");

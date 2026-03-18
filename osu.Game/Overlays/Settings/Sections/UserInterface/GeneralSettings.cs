@@ -48,12 +48,11 @@ namespace osu.Game.Overlays.Settings.Sections.UserInterface
                 {
                     Keywords = [@"colour", @"color", @"hue", @"theme", @"accent"],
                 },
-                new SettingsItemV2(new FormSliderBar<float>
+                new SettingsItemV2(new FormHuePicker
                 {
                     Caption = UserInterfaceStrings.CustomUIHue,
                     Current = config.GetBindable<float>(OsuSetting.CustomUIHue),
-                    KeyboardStep = 1f,
-                    LabelFormat = v => $"{v:0}°",
+                    HintText = UserInterfaceStrings.CustomUIHue,
                 })
                 {
                     Keywords = [@"colour", @"color", @"hue", @"theme", @"accent"],

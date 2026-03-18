@@ -1,6 +1,7 @@
 ﻿// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
@@ -25,6 +26,8 @@ namespace osu.Game.Overlays
 
         [Cached]
         private OverlayColourProvider colourProvider = new OverlayColourProvider(OverlayColourScheme.Purple);
+        private IDisposable? customUiHueBinding;
+        private Box background = null!;
 
         public LoginOverlay()
         {
@@ -52,7 +55,7 @@ namespace osu.Game.Overlays
                     AutoSizeAxes = Axes.Y,
                     Children = new Drawable[]
                     {
-                        new Box
+                        background = new Box
                         {
                             RelativeSizeAxes = Axes.Both,
                             Colour = colourProvider.Background4,
@@ -73,6 +76,14 @@ namespace osu.Game.Overlays
                     }
                 }
             };
+
+            customUiHueBinding = CustomUiHueHelper.BindHue(config, OverlayColourScheme.Purple.GetHue(), CustomUiHueScope.Overlays, hue =>
+            {
+                colourProvider.ChangeColourScheme(hue);
+
+                if (background != null)
+                    background.Colour = colourProvider.Background4;
+            });
         }
 
         protected override void PopIn()
@@ -91,6 +102,17 @@ namespace osu.Game.Overlays
             panel.Bounding = false;
             this.FadeOut(transition_time);
             FadeEdgeEffectTo(0, WaveContainer.DISAPPEAR_DURATION, Easing.In);
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing)
+            {
+                customUiHueBinding?.Dispose();
+                customUiHueBinding = null;
+            }
+
+            base.Dispose(isDisposing);
         }
     }
 }
