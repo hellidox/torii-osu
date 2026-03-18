@@ -7,12 +7,16 @@ using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Sample;
+using osu.Framework.Graphics;
 using osu.Framework.Extensions.LocalisationExtensions;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.UserInterface;
 using osu.Framework.Input;
 using osu.Framework.Screens;
+using osu.Framework.Testing;
 using osu.Game.Beatmaps;
+using osu.Game.Graphics;
+using osu.Game.Graphics.Sprites;
 using osu.Game.Graphics.UserInterface;
 using osu.Game.Localisation;
 using osu.Game.Overlays;
@@ -33,6 +37,9 @@ namespace osu.Game.Screens.Select
     {
         protected override UserActivity InitialActivity => new UserActivity.ChoosingBeatmap();
 
+        private readonly HashSet<Drawable> styledTextCache = new HashSet<Drawable>();
+        private double lastStylePassTime;
+
         [Resolved]
         private INotificationOverlay? notifications { get; set; }
 
@@ -48,7 +55,7 @@ namespace osu.Game.Screens.Select
             AddInternal(new SongSelectTouchInputDetector());
         }
 
-        protected override BeatmapDetailArea CreateBeatmapDetailArea() => new PlayBeatmapDetailArea();
+        protected override BeatmapDetailArea CreateBeatmapDetailArea() => new StableStylePlayBeatmapDetailArea();
 
         public override MenuItem[] CreateForwardNavigationMenuItemsForBeatmap(Func<BeatmapInfo> getBeatmap) => new MenuItem[]
         {
@@ -127,6 +134,24 @@ namespace osu.Game.Screens.Select
             playerLoader = null;
         }
 
+        protected override void Update()
+        {
+            base.Update();
+
+            if (Time.Current - lastStylePassTime < 250)
+                return;
+
+            lastStylePassTime = Time.Current;
+
+            foreach (var text in this.ChildrenOfType<OsuSpriteText>())
+            {
+                if (!styledTextCache.Add(text))
+                    continue;
+
+                text.Font = text.Font.With(typeface: Typeface.Venera);
+            }
+        }
+
         private partial class PlayerLoader : Play.PlayerLoader
         {
             public override bool ShowFooter => !QuickRestart;
@@ -134,6 +159,16 @@ namespace osu.Game.Screens.Select
             public PlayerLoader(Func<Player> createPlayer)
                 : base(createPlayer)
             {
+            }
+        }
+
+        private partial class StableStylePlayBeatmapDetailArea : PlayBeatmapDetailArea
+        {
+            [BackgroundDependencyLoader]
+            private void load()
+            {
+                foreach (var text in this.ChildrenOfType<OsuSpriteText>())
+                    text.Font = text.Font.With(typeface: Typeface.Venera);
             }
         }
     }
