@@ -495,7 +495,18 @@ jobs:
       if: matrix.runtime != 'android'
       shell: bash
       run: |
-        if [[ "${{ matrix.runtime }}" == osx-* ]]; then
+        if [[ "${{ matrix.runtime }}" == osx-* ]] && [[ "${{ matrix.os }}" != macos* ]]; then
+          # Cross-building macOS on Linux: create plain zip fallback instead of vpk.
+          mkdir -p Releases
+          ZIP_NAME="osu.app.Intel.zip"
+          if [[ "${{ matrix.runtime }}" == "osx-arm64" ]]; then
+            ZIP_NAME="osu.app.Apple.Silicon.zip"
+          fi
+          (
+            cd "publish/${{ matrix.runtime }}"
+            zip -r "../../Releases/${ZIP_NAME}" .
+          )
+        elif [[ "${{ matrix.runtime }}" == osx-* ]]; then
           # Use icns if available, fallback to ico
           ICON_FILE="osu.Desktop/lazer.ico"
           if [ -f "osu.Desktop/lazer.icns" ] && [ -s "osu.Desktop/lazer.icns" ]; then
