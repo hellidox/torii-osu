@@ -70,6 +70,6 @@ jobs:
 
     - name: Build summary
       run: |
-        echo "✅ 开发版本构建检查完成"
-        echo "📝 这是一个快速构建检查，不会生成安装包"
-        echo "🚀 推送到 main/master 分支或创建 tag 以触发完整构建"
+        echo "Development build check completed."
+        echo "This is a fast CI verification run and does not generate installers."
+        echo "Push to main/master or create a tag to trigger full release builds."

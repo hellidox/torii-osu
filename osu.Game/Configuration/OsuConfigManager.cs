@@ -94,7 +94,7 @@ namespace osu.Game.Configuration
                 }
             };
 
-            SetDefault(OsuSetting.CustomApiUrl, "gamerherz.ddns.net");
+            SetDefault(OsuSetting.CustomApiUrl, "lazer-api.shikkesora.com");
 
             SetDefault(OsuSetting.ExternalLinkWarning, true);
             SetDefault(OsuSetting.PreferNoVideo, false);
@@ -269,6 +269,19 @@ namespace osu.Game.Configuration
 
         public void Migrate()
         {
+            string? configuredApiUrl = Get<string>(OsuSetting.CustomApiUrl)?.Trim().TrimEnd('/');
+
+            if (!string.IsNullOrEmpty(configuredApiUrl))
+            {
+                if (configuredApiUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                    configuredApiUrl = configuredApiUrl.Substring("http://".Length).TrimEnd('/');
+                else if (configuredApiUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    configuredApiUrl = configuredApiUrl.Substring("https://".Length).TrimEnd('/');
+
+                if (string.Equals(configuredApiUrl, "gamerherz.ddns.net", StringComparison.OrdinalIgnoreCase))
+                    SetValue(OsuSetting.CustomApiUrl, "lazer-api.shikkesora.com");
+            }
+
             // arrives as 2020.123.0-lazer
             string rawVersion = Get<string>(OsuSetting.Version);
 

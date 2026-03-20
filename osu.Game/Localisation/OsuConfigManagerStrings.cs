@@ -10,9 +10,9 @@ namespace osu.Game.Localisation
         private const string prefix = @"osu.Game.Resources.Localisation.OsuConfigManager";
 
         /// <summary>
-        /// "gamerherz.ddns.net"
+        /// "lazer-api.shikkesora.com"
         /// </summary>
-        public static LocalisableString GamerherzDdnsNet => new TranslatableString(getKey(@"gamerherz_ddns_net"), @"gamerherz.ddns.net");
+        public static LocalisableString GamerherzDdnsNet => new TranslatableString(getKey(@"gamerherz_ddns_net"), @"lazer-api.shikkesora.com");
 
         private static string getKey(string key) => $@"{prefix}:{key}";
     }

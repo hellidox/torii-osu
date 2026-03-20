@@ -42,8 +42,8 @@ namespace osu.Game.Online.API
 
         public EndpointConfiguration Endpoints { get; } = new EndpointConfiguration
         {
-            APIUrl = "http://gamerherz.ddns.net",
-            WebsiteUrl = "http://gamerherz.ddns.net",
+            APIUrl = "https://lazer-api.shikkesora.com",
+            WebsiteUrl = "https://lazer.shikkesora.com",
         };
 
         public int APIVersion => int.Parse(DateTime.Now.ToString("yyyyMMdd"));
