@@ -602,6 +602,40 @@ jobs:
           fi
         fi
 
+    - name: Create portable archive (Windows)
+      if: startsWith(matrix.runtime, 'win-')
+      shell: pwsh
+      run: |
+        $runtime = "${{ matrix.runtime }}"
+        $publishDir = "publish/$runtime"
+        $releaseDir = "Releases"
+        New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+
+        $portableZip = Join-Path $releaseDir "portable-$runtime.zip"
+        if (Test-Path $portableZip) {
+          Remove-Item $portableZip -Force
+        }
+
+        Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $portableZip
+        Write-Host "Created portable package: $portableZip"
+
+    - name: Create portable archive (Linux/macOS)
+      if: startsWith(matrix.runtime, 'linux-') || startsWith(matrix.runtime, 'osx-')
+      shell: bash
+      run: |
+        mkdir -p Releases
+
+        if [[ "${{ matrix.runtime }}" == linux-* ]]; then
+          tar -C "publish/${{ matrix.runtime }}" -czf "Releases/portable-${{ matrix.runtime }}.tar.gz" .
+          echo "Created portable package: Releases/portable-${{ matrix.runtime }}.tar.gz"
+        else
+          (
+            cd "publish/${{ matrix.runtime }}"
+            zip -r "../../Releases/portable-${{ matrix.runtime }}.zip" .
+          )
+          echo "Created portable package: Releases/portable-${{ matrix.runtime }}.zip"
+        fi
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -723,10 +757,16 @@ jobs:
 
           - **Windows (x64)**: 下载 `osu-gu-windows` 安装程序
           - **Windows (ARM64)**: 下载 `osu-gu-windows-arm64` 安装程序
+          - **Windows Portable (x64)**: 下载 `portable-win-x64.zip`
+          - **Windows Portable (ARM64)**: 下载 `portable-win-arm64.zip`
           - **Linux (x64)**: 下载 `osu-gu-linux` 安装包
           - **Linux (ARM64)**: 下载 `osu-gu-linux-arm64` 安装包
+          - **Linux Portable (x64)**: 下载 `portable-linux-x64.tar.gz`
+          - **Linux Portable (ARM64)**: 下载 `portable-linux-arm64.tar.gz`
           - **macOS (Intel)**: 下载 `osu-gu-macos-intel` 安装包
           - **macOS (Apple Silicon)**: 下载 `osu-gu-macos-apple-silicon` 安装包
+          - **macOS Portable (Intel)**: 下载 `portable-osx-x64.zip`
+          - **macOS Portable (Apple Silicon)**: 下载 `portable-osx-arm64.zip`
           - **Android**: ⚠️ 请访问 [https://lazer.g0v0.top/how-to-join](https://lazer.g0v0.top/how-to-join) 下载可用版本（此处的APK文件因签名问题无法安装）
 
           ### 安装说明
