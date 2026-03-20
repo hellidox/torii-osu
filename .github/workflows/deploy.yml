@@ -7,7 +7,7 @@ on:
 
 jobs:
   notify_pending_production_deploy:
-    if: github.repository_owner == 'ppy' && secrets.DISCORD_INFRA_WEBHOOK_URL != ''
+    if: github.repository_owner == 'ppy'
     runs-on: ubuntu-latest
     steps:
       - name: Submit pending deployment notification
@@ -39,7 +39,7 @@ jobs:
             "${{ secrets.DISCORD_INFRA_WEBHOOK_URL }}"
 
   pack:
-    if: github.repository_owner == 'ppy' && secrets.NUGET_API_KEY != ''
+    if: github.repository_owner == 'ppy'
     name: Pack
     runs-on: ubuntu-latest
     environment: production
