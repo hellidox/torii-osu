@@ -125,7 +125,7 @@ jobs:
             runtime: linux-arm64
             artifact-name: osu-gu-linux-arm64
             executable: osu-gu
-          - os: macos-13
+          - os: macos-14
             runtime: osx-x64
             artifact-name: osu-gu-macos-intel
             executable: osu-gu
@@ -433,10 +433,38 @@ jobs:
             -p:InformationalVersion=${{ needs.version.outputs.version }}
         fi
 
+    - name: Resolve desktop executable name
+      if: matrix.runtime != 'android'
+      shell: bash
+      run: |
+        PUBLISH_DIR="publish/${{ matrix.runtime }}"
+        EXPECTED="${{ matrix.executable }}"
+        RESOLVED="$EXPECTED"
+
+        if [[ ! -f "$PUBLISH_DIR/$EXPECTED" ]]; then
+          echo "Expected executable missing: $PUBLISH_DIR/$EXPECTED"
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            CANDIDATE=$(find "$PUBLISH_DIR" -maxdepth 1 -type f -name "*.exe" | head -n1)
+          else
+            CANDIDATE=$(find "$PUBLISH_DIR" -maxdepth 1 -type f -name "osu*" ! -name "*.dll" ! -name "*.deps.json" ! -name "*.runtimeconfig.json" | head -n1)
+          fi
+
+          if [[ -n "$CANDIDATE" ]]; then
+            RESOLVED=$(basename "$CANDIDATE")
+            echo "Resolved executable fallback: $RESOLVED"
+          else
+            echo "Unable to locate executable in $PUBLISH_DIR"
+            ls -la "$PUBLISH_DIR" || true
+            exit 1
+          fi
+        fi
+
+        echo "RESOLVED_EXECUTABLE=$RESOLVED" >> "$GITHUB_ENV"
+
     - name: Set executable permissions (Linux/macOS)
       if: (matrix.os == 'ubuntu-latest' || startsWith(matrix.os, 'macos-')) && matrix.runtime != 'android'
       shell: bash
-      run: chmod +x "publish/${{ matrix.runtime }}/${{ matrix.executable }}"
+      run: chmod +x "publish/${{ matrix.runtime }}/${RESOLVED_EXECUTABLE}"
 
     - name: Create Velopack package
       if: matrix.runtime != 'android'
@@ -459,7 +487,7 @@ jobs:
             -u "osu-lazer-gu" \
             -v "${{ needs.version.outputs.semver }}" \
             -p "publish/${{ matrix.runtime }}" \
-            -e "${{ matrix.executable }}" \
+            -e "${RESOLVED_EXECUTABLE}" \
             --packAuthors "osu! GooGuTeam" \
             --packTitle "osu! Torii" \
             -i "$ICON_FILE" \
@@ -471,7 +499,7 @@ jobs:
             -u "osu-lazer-gu" \
             -v "${{ needs.version.outputs.semver }}" \
             -p "publish/${{ matrix.runtime }}" \
-            -e "${{ matrix.executable }}" \
+            -e "${RESOLVED_EXECUTABLE}" \
             --packAuthors "osu! GooGuTeam" \
             --packTitle "osu! Torii" \
             -i "osu.Desktop/lazer.ico" \
@@ -484,7 +512,7 @@ jobs:
             -u "osu-lazer-gu" \
             -v "${{ needs.version.outputs.semver }}" \
             -p "publish/${{ matrix.runtime }}" \
-            -e "${{ matrix.executable }}" \
+            -e "${RESOLVED_EXECUTABLE}" \
             --packAuthors "osu! GooGuTeam" \
             --packTitle "osu! Torii" \
             -i "osu.Desktop/lazer.ico" \
@@ -565,6 +593,24 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+    - name: Checkout osu-framework dependency
+      uses: actions/checkout@v4
+      with:
+        repository: shigetiro/osu-framework
+        fetch-depth: 1
+        path: osu-framework
+    - name: Checkout osu-resources dependency
+      uses: actions/checkout@v4
+      with:
+        repository: shigetiro/osu-resources
+        fetch-depth: 1
+        path: osu-resources
+    - name: Place dependencies in expected sibling paths
+      shell: bash
+      run: |
+        rm -rf ../osu-framework ../osu-resources
+        mv osu-framework ../osu-framework
+        mv osu-resources ../osu-resources
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
