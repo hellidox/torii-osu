@@ -14,9 +14,6 @@ on:
         default: '1.0.0-dev'
   release:
     types: [ published ]
-  workflow_run:
-    workflows: [ "Auto tag from master" ]
-    types: [ completed ]
 
 env:
   DOTNET_VERSION: '8.0.x'
@@ -101,7 +98,6 @@ jobs:
 
   build:
     name: Build ${{ matrix.runtime }} on ${{ matrix.os }}
-    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run'
     needs: version
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -171,15 +167,6 @@ jobs:
         rm -rf ../osu-framework ../osu-resources
         mv osu-framework ../osu-framework
         mv osu-resources ../osu-resources
-
-    - name: Switch to latest tag (workflow_run)
-      if: github.event_name == 'workflow_run'
-      shell: bash
-      run: |
-        git fetch --tags --force
-        LAST_TAG=$(git tag -l 'v*' --sort=-creatordate | head -n1)
-        echo "Latest tag detected: $LAST_TAG"
-        git checkout "$LAST_TAG"
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -607,8 +594,8 @@ jobs:
     # Create a GitHub Release when triggered by:
     # - tag push (v*)
     # - release event
-    # - push to master/main (auto-generate date-based tag)
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    # - workflow_dispatch
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs: [build, version]
     runs-on: ubuntu-latest
     permissions:
