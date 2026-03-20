@@ -169,8 +169,8 @@ jobs:
       shell: bash
       run: |
         rm -rf ../osu-framework ../osu-resources
-        cp -a osu-framework ../osu-framework
-        cp -a osu-resources ../osu-resources
+        mv osu-framework ../osu-framework
+        mv osu-resources ../osu-resources
 
     - name: Switch to latest tag (workflow_run)
       if: github.event_name == 'workflow_run'
