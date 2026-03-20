@@ -456,7 +456,8 @@ jobs:
             -i "$ICON_FILE" \
             -c "$CHANNEL"
         elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          CHANNEL="${{ matrix.runtime }}"
+          CHANNEL="win"
+          if [[ "${{ matrix.runtime }}" == "win-arm64" ]]; then CHANNEL="win-arm64"; fi
           vpk pack \
             -u "osu-lazer-gu" \
             -v "${{ needs.version.outputs.semver }}" \
@@ -468,7 +469,8 @@ jobs:
             -c "$CHANNEL"
         else
           # Linux
-          CHANNEL="${{ matrix.runtime }}"
+          CHANNEL="linux"
+          if [[ "${{ matrix.runtime }}" == "linux-arm64" ]]; then CHANNEL="linux-arm64"; fi
           vpk pack \
             -u "osu-lazer-gu" \
             -v "${{ needs.version.outputs.semver }}" \
