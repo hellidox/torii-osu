@@ -151,6 +151,27 @@ jobs:
         # Use the release tag when triggered by a Release event, otherwise the triggering SHA
         ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
 
+    - name: Checkout osu-framework dependency
+      uses: actions/checkout@v4
+      with:
+        repository: shigetiro/osu-framework
+        fetch-depth: 1
+        path: osu-framework
+
+    - name: Checkout osu-resources dependency
+      uses: actions/checkout@v4
+      with:
+        repository: shigetiro/osu-resources
+        fetch-depth: 1
+        path: osu-resources
+
+    - name: Place dependencies in expected sibling paths
+      shell: bash
+      run: |
+        rm -rf ../osu-framework ../osu-resources
+        cp -a osu-framework ../osu-framework
+        cp -a osu-resources ../osu-resources
+
     - name: Switch to latest tag (workflow_run)
       if: github.event_name == 'workflow_run'
       shell: bash
