@@ -592,7 +592,13 @@ jobs:
         fi
         # Linux AppImage rename if present
         if [[ "${{ matrix.os }}" == "ubuntu-latest" ]] && [[ "${{ matrix.runtime }}" == linux-* ]]; then
-          for f in Releases/*.AppImage; do mv -f "$f" "Releases/osu-torii-${{ matrix.runtime }}.AppImage"; done
+          target="Releases/osu-torii-${{ matrix.runtime }}.AppImage"
+          for f in Releases/*.AppImage; do
+            if [[ "$f" == "$target" ]]; then
+              continue
+            fi
+            mv -f "$f" "$target"
+          done
         fi
         # Android APK rename
         if [[ "${{ matrix.runtime }}" == "android" ]]; then
