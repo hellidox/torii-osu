@@ -116,9 +116,17 @@ jobs:
             runtime: win-x64
             artifact-name: osu-gu-windows
             executable: osu-gu!.exe
+          - os: windows-latest
+            runtime: win-arm64
+            artifact-name: osu-gu-windows-arm64
+            executable: osu-gu!.exe
           - os: ubuntu-latest
             runtime: linux-x64
             artifact-name: osu-gu-linux
+            executable: osu-gu!
+          - os: ubuntu-latest
+            runtime: linux-arm64
+            artifact-name: osu-gu-linux-arm64
             executable: osu-gu!
           - os: macos-latest
             runtime: osx-x64
@@ -448,6 +456,7 @@ jobs:
             -i "$ICON_FILE" \
             -c "$CHANNEL"
         elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          CHANNEL="${{ matrix.runtime }}"
           vpk pack \
             -u "osu-lazer-gu" \
             -v "${{ needs.version.outputs.semver }}" \
@@ -456,9 +465,10 @@ jobs:
             --packAuthors "osu! GooGuTeam" \
             --packTitle "osu! Torii" \
             -i "osu.Desktop/lazer.ico" \
-            -c "win"
+            -c "$CHANNEL"
         else
           # Linux
+          CHANNEL="${{ matrix.runtime }}"
           vpk pack \
             -u "osu-lazer-gu" \
             -v "${{ needs.version.outputs.semver }}" \
@@ -467,7 +477,7 @@ jobs:
             --packAuthors "osu! GooGuTeam" \
             --packTitle "osu! Torii" \
             -i "osu.Desktop/lazer.ico" \
-            -c "linux"
+            -c "$CHANNEL"
         fi
 
     - name: Normalize asset names (optional)
@@ -477,7 +487,7 @@ jobs:
         # Windows installer rename to install.exe if present
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
           if [ -f "Releases/Setup.exe" ]; then
-            mv -f Releases/Setup.exe Releases/install.exe
+            mv -f "Releases/Setup.exe" "Releases/install-${{ matrix.runtime }}.exe"
           fi
         fi
         # macOS zip rename if present
@@ -506,8 +516,8 @@ jobs:
           fi
         fi
         # Linux AppImage rename if present
-        if [[ "${{ matrix.os }}" == "ubuntu-latest" ]] && [[ "${{ matrix.runtime }}" == "linux-x64" ]]; then
-          for f in Releases/*.AppImage; do mv -f "$f" Releases/osu.AppImage; done
+        if [[ "${{ matrix.os }}" == "ubuntu-latest" ]] && [[ "${{ matrix.runtime }}" == linux-* ]]; then
+          for f in Releases/*.AppImage; do mv -f "$f" "Releases/osu-${{ matrix.runtime }}.AppImage"; done
         fi
         # Android APK rename
         if [[ "${{ matrix.runtime }}" == "android" ]]; then
@@ -618,8 +628,10 @@ jobs:
 
           ### 下载
 
-          - **Windows**: 下载 `osu-gu-windows` 安装程序
-          - **Linux**: 下载 `osu-gu-linux` 安装包
+          - **Windows (x64)**: 下载 `osu-gu-windows` 安装程序
+          - **Windows (ARM64)**: 下载 `osu-gu-windows-arm64` 安装程序
+          - **Linux (x64)**: 下载 `osu-gu-linux` 安装包
+          - **Linux (ARM64)**: 下载 `osu-gu-linux-arm64` 安装包
           - **macOS (Intel)**: 下载 `osu-gu-macos-intel` 安装包
           - **macOS (Apple Silicon)**: 下载 `osu-gu-macos-apple-silicon` 安装包
           - **Android**: ⚠️ 请访问 [https://lazer.g0v0.top/how-to-join](https://lazer.g0v0.top/how-to-join) 下载可用版本（此处的APK文件因签名问题无法安装）
