@@ -65,7 +65,7 @@ namespace osu.Game.Screens.Play.HUD
             {
                 performanceCalculator = gameplayState.Ruleset.CreatePerformanceCalculator();
                 clonedMods = gameplayState.Mods.Select(m => m.DeepClone()).ToArray();
-                isManiaRuleset = gameplayState.Ruleset.RulesetInfo.ShortName == RulesetInfo.MANIA_MODE_SHORTNAME;
+                isManiaRuleset = gameplayState.Ruleset.RulesetInfo.ShortName == "mania";
 
                 scoreInfo = new ScoreInfo(gameplayState.Score.ScoreInfo.BeatmapInfo, gameplayState.Score.ScoreInfo.Ruleset) { Mods = clonedMods };
 
