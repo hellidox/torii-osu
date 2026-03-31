@@ -403,23 +403,24 @@ jobs:
             aapt2 dump badging "publish/${{ matrix.runtime }}/${{ matrix.executable }}" | grep -E "application-label|package" || true
           fi
         else
-          # Desktop build
-          dotnet publish osu.Desktop/osu.Desktop.csproj \
-            --self-contained false \
+          # Desktop build (build-only path is more reliable than publish on GH hosted runners for this fork).
+          dotnet build osu.Desktop/osu.Desktop.csproj \
             --runtime ${{ matrix.runtime }} \
             --configuration Release \
-            --output "publish/${{ matrix.runtime }}" \
-            --verbosity normal \
+            --verbosity minimal \
+            --no-restore \
             -warnaserror- \
             -p:NuGetAudit=false \
             -p:TreatWarningsAsErrors=false \
             -p:RunAnalyzers=false \
-            -p:PublishSingleFile=false \
-            -p:PublishTrimmed=false \
             -p:Version=${{ needs.version.outputs.semver }} \
             -p:FileVersion=${{ needs.version.outputs.fileVersion }} \
             -p:AssemblyVersion=${{ needs.version.outputs.assemblyVersion }} \
             -p:InformationalVersion=${{ needs.version.outputs.version }}
+
+          # Stage build output in publish/<runtime> so downstream packaging steps remain unchanged.
+          mkdir -p "publish/${{ matrix.runtime }}"
+          cp -r "osu.Desktop/bin/Release/net8.0/${{ matrix.runtime }}/." "publish/${{ matrix.runtime }}/"
         fi
 
     - name: Resolve desktop executable name
