@@ -117,30 +117,6 @@ jobs:
             runtime: win-x64
             artifact-name: osu-torii-windows
             executable: osu-torii.exe
-          - os: windows-latest
-            runtime: win-arm64
-            artifact-name: osu-torii-windows-arm64
-            executable: osu-torii.exe
-          - os: ubuntu-latest
-            runtime: linux-x64
-            artifact-name: osu-torii-linux
-            executable: osu-torii
-          - os: ubuntu-latest
-            runtime: linux-arm64
-            artifact-name: osu-torii-linux-arm64
-            executable: osu-torii
-          - os: ubuntu-latest
-            runtime: osx-x64
-            artifact-name: osu-torii-macos-intel
-            executable: osu-torii
-          - os: ubuntu-latest
-            runtime: osx-arm64
-            artifact-name: osu-torii-macos-apple-silicon
-            executable: osu-torii
-          - os: ubuntu-latest
-            runtime: android
-            artifact-name: osu-torii-android
-            executable: osu.Android-Signed.apk
 
     steps:
     - name: Checkout code
@@ -429,7 +405,7 @@ jobs:
         else
           # Desktop build
           dotnet publish osu.Desktop/osu.Desktop.csproj \
-            --self-contained \
+            --self-contained false \
             --runtime ${{ matrix.runtime }} \
             --configuration Release \
             --output "publish/${{ matrix.runtime }}" \
