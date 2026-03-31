@@ -341,83 +341,45 @@ jobs:
         fi
 
     - name: Build and publish
-      shell: bash
+      shell: pwsh
       env:
         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       run: |
-        echo "Building for runtime: ${{ matrix.runtime }}"
-        if [[ "${{ matrix.runtime }}" == "android" ]]; then
-          # Build Android APK
-          # Prefer signing values from secrets, fallback to temporary defaults.
-          KEYSTORE_PASS="${ANDROID_KEYSTORE_PASSWORD:-temp123}"
-          KEY_ALIAS="${ANDROID_KEY_ALIAS:-osu}"
-          KEY_PASS="${ANDROID_KEY_PASSWORD:-temp123}"
-          
-          echo "Using Java version: $(java -version 2>&1 | head -n 1)"
-          echo "Android SDK Root: $ANDROID_SDK_ROOT"
-          echo "Keystore file exists: $(test -f osu.keystore && echo 'Yes' || echo 'No')"
-          echo "Using key alias: $KEY_ALIAS"
-          
-          # Ensure keystore exists before publish.
-          if [[ ! -f "osu.keystore" ]]; then
-            echo "ERROR: Keystore file not found!"
-            exit 1
-          fi
-          
-          dotnet publish osu.Android/osu.Android.csproj \
-            --configuration Release \
-            --verbosity normal \
-            --no-restore \
-            -p:NuGetAudit=false \
-            -p:TreatWarningsAsErrors=false \
-            -p:Version=${{ needs.version.outputs.semver }} \
-            -p:ApplicationVersion=${{ needs.version.outputs.androidVersionCode }} \
-            -p:ApplicationDisplayVersion=${{ needs.version.outputs.semver }} \
-            -p:AndroidSdkDirectory=$ANDROID_SDK_ROOT \
-            -p:AndroidKeyStore=true \
-            -p:AndroidSigningKeyStore=../osu.keystore \
-            -p:AndroidSigningKeyAlias="$KEY_ALIAS" \
-            -p:AndroidSigningKeyPass="$KEY_PASS" \
-            -p:AndroidSigningStorePass="$KEYSTORE_PASS" \
-            -p:AndroidPackageFormat=apk
-          
-          # Create output directory and copy APK
-          mkdir -p "publish/${{ matrix.runtime }}"
-          
-          # Find the signed APK
-          APK_FILE=$(find osu.Android/bin/Release/ -name "*.apk" | head -1)
-          if [[ -z "$APK_FILE" ]]; then
-            echo "ERROR: No APK file found after build!"
-            exit 1
-          fi
-          
-          echo "Found APK: $APK_FILE"
-          cp "$APK_FILE" "publish/${{ matrix.runtime }}/${{ matrix.executable }}"
-          
-          # Optionally inspect resulting APK metadata.
-          if command -v aapt2 &> /dev/null; then
-            echo "Verifying APK signature..."
-            aapt2 dump badging "publish/${{ matrix.runtime }}/${{ matrix.executable }}" | grep -E "application-label|package" || true
-          fi
-        else
-          # Desktop build (build-only path is more reliable than publish on GH hosted runners for this fork).
-          dotnet build osu.Desktop/osu.Desktop.csproj \
-            --runtime ${{ matrix.runtime }} \
-            --configuration Release \
-            --verbosity minimal \
-            --no-restore \
-            -p:NuGetAudit=false \
-            -p:TreatWarningsAsErrors=false \
-            -p:RunAnalyzers=false \
-            -p:OutputPath=publish/${{ matrix.runtime }}/ \
-            -p:Version=${{ needs.version.outputs.semver }} \
-            -p:FileVersion=${{ needs.version.outputs.fileVersion }} \
-            -p:AssemblyVersion=${{ needs.version.outputs.assemblyVersion }} \
-            -p:InformationalVersion=${{ needs.version.outputs.version }}
-        fi
+        $ErrorActionPreference = "Stop"
+        $runtime = "${{ matrix.runtime }}"
+        Write-Host "Building for runtime: $runtime"
+
+        if ($runtime -eq "android") {
+          throw "Android runtime is not enabled in this reduced release matrix."
+        }
+
+        $outputPath = "publish/$runtime"
+        dotnet publish osu.Desktop/osu.Desktop.csproj `
+          --self-contained `
+          --runtime $runtime `
+          --configuration Release `
+          --output $outputPath `
+          --verbosity minimal `
+          --no-restore `
+          -p:NuGetAudit=false `
+          -p:TreatWarningsAsErrors=false `
+          -p:RunAnalyzers=false `
+          -p:PublishSingleFile=false `
+          -p:PublishTrimmed=false `
+          -p:Version=${{ needs.version.outputs.semver }} `
+          -p:FileVersion=${{ needs.version.outputs.fileVersion }} `
+          -p:AssemblyVersion=${{ needs.version.outputs.assemblyVersion }} `
+          -p:InformationalVersion=${{ needs.version.outputs.version }}
+
+        if (-not (Test-Path $outputPath)) {
+          throw "Publish output path not found: $outputPath"
+        }
+
+        Write-Host "Published files:"
+        Get-ChildItem -Path $outputPath -File | Select-Object Name, Length | Format-Table -AutoSize
 
     - name: Resolve desktop executable name
       if: matrix.runtime != 'android'
