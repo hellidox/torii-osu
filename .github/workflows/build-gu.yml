@@ -409,10 +409,11 @@ jobs:
             --runtime ${{ matrix.runtime }} \
             --configuration Release \
             --output "publish/${{ matrix.runtime }}" \
-            --no-restore \
             --verbosity normal \
+            -warnaserror- \
             -p:NuGetAudit=false \
             -p:TreatWarningsAsErrors=false \
+            -p:RunAnalyzers=false \
             -p:PublishSingleFile=false \
             -p:PublishTrimmed=false \
             -p:Version=${{ needs.version.outputs.semver }} \
