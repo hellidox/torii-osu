@@ -413,14 +413,11 @@ jobs:
             -p:NuGetAudit=false \
             -p:TreatWarningsAsErrors=false \
             -p:RunAnalyzers=false \
+            -p:OutputPath=publish/${{ matrix.runtime }}/ \
             -p:Version=${{ needs.version.outputs.semver }} \
             -p:FileVersion=${{ needs.version.outputs.fileVersion }} \
             -p:AssemblyVersion=${{ needs.version.outputs.assemblyVersion }} \
             -p:InformationalVersion=${{ needs.version.outputs.version }}
-
-          # Stage build output in publish/<runtime> so downstream packaging steps remain unchanged.
-          mkdir -p "publish/${{ matrix.runtime }}"
-          cp -r "osu.Desktop/bin/Release/net8.0/${{ matrix.runtime }}/." "publish/${{ matrix.runtime }}/"
         fi
 
     - name: Resolve desktop executable name
