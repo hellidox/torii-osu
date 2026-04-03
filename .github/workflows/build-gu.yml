@@ -567,9 +567,13 @@ jobs:
         shopt -s nullglob
         # Windows installer rename to install.exe if present
         if [[ "${{ matrix.runtime }}" == win-* ]]; then
-          if [ -f "Releases/Setup.exe" ]; then
-            mv -f "Releases/Setup.exe" "Releases/install-${{ matrix.runtime }}.exe"
-          fi
+          installers=(Releases/*-Setup.exe Releases/Setup.exe)
+          for f in "${installers[@]}"; do
+            if [[ -f "$f" ]]; then
+              mv -f "$f" "Releases/install-${{ matrix.runtime }}.exe"
+              break
+            fi
+          done
         fi
         # macOS zip rename if present
         if [[ "${{ matrix.runtime }}" == osx-* ]]; then
