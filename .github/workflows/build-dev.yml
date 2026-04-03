@@ -22,14 +22,14 @@ jobs:
     - name: Checkout osu-framework dependency
       uses: actions/checkout@v4
       with:
-        repository: shigetiro/osu-framework
+        repository: ShikkesoraSIM/torii-framework
         fetch-depth: 1
         path: osu-framework
 
     - name: Checkout osu-resources dependency
       uses: actions/checkout@v4
       with:
-        repository: shigetiro/osu-resources
+        repository: ShikkesoraSIM/torii-resources
         fetch-depth: 1
         path: osu-resources
 

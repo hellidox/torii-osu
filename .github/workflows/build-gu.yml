@@ -17,8 +17,10 @@ on:
 
 env:
   DOTNET_VERSION: '8.0.x'
-  FRAMEWORK_REF: '8beb934406ba7d19038e3f2209a4ba342d12d7cb'
-  RESOURCES_REF: 'c4ccc1a4ac6fd5fddf2faf1530937bf97f03c3fd'
+  FRAMEWORK_REPOSITORY: 'ShikkesoraSIM/torii-framework'
+  FRAMEWORK_REF: '7f72b7b3370ecc47c0a92655f28d973d1ea04267'
+  RESOURCES_REPOSITORY: 'ShikkesoraSIM/torii-resources'
+  RESOURCES_REF: '6dd74908dbe7646dab1beba9ed6d3a67767a5174'
 
 jobs:
   version:
@@ -152,7 +154,7 @@ jobs:
     - name: Checkout osu-framework dependency
       uses: actions/checkout@v4
       with:
-        repository: shigetiro/osu-framework
+        repository: ${{ env.FRAMEWORK_REPOSITORY }}
         fetch-depth: 1
         ref: ${{ env.FRAMEWORK_REF }}
         path: osu-framework
@@ -160,7 +162,7 @@ jobs:
     - name: Checkout osu-resources dependency
       uses: actions/checkout@v4
       with:
-        repository: shigetiro/osu-resources
+        repository: ${{ env.RESOURCES_REPOSITORY }}
         fetch-depth: 1
         ref: ${{ env.RESOURCES_REF }}
         path: osu-resources
@@ -721,14 +723,14 @@ jobs:
     - name: Checkout osu-framework dependency
       uses: actions/checkout@v4
       with:
-        repository: shigetiro/osu-framework
+        repository: ${{ env.FRAMEWORK_REPOSITORY }}
         fetch-depth: 1
         ref: ${{ env.FRAMEWORK_REF }}
         path: osu-framework
     - name: Checkout osu-resources dependency
       uses: actions/checkout@v4
       with:
-        repository: shigetiro/osu-resources
+        repository: ${{ env.RESOURCES_REPOSITORY }}
         fetch-depth: 1
         ref: ${{ env.RESOURCES_REF }}
         path: osu-resources
