@@ -261,7 +261,22 @@ namespace osu.Game.Screens.Play
         {
             bool exiting = base.OnExiting(e);
             submitFromFailOrQuit(Score);
-            statics.SetValue(Static.LastLocalUserScore, Score?.ScoreInfo.DeepClone());
+
+            // Avoid deep-cloning score data on the update thread while the player screen is exiting.
+            // Quits do not need to keep a cloned "last local score" around, which avoids a large allocation
+            // right as we're transitioning back to menu.
+            var scoreInfo = Score?.ScoreInfo;
+            if (scoreInfo != null && !GameplayState.HasQuit)
+            {
+                Task.Run(() =>
+                {
+                    var scoreInfoCopy = scoreInfo.DeepClone();
+                    Schedule(() => statics.SetValue(Static.LastLocalUserScore, scoreInfoCopy));
+                }).FireAndForget();
+            }
+            else
+                statics.SetValue<ScoreInfo?>(Static.LastLocalUserScore, null);
+
             return exiting;
         }
 
@@ -269,13 +284,18 @@ namespace osu.Game.Screens.Play
         {
             if (LoadedBeatmapSuccessfully)
             {
-                // compare: https://github.com/ppy/osu/blob/ccf1acce56798497edfaf92d3ece933469edcf0a/osu.Game/Screens/Play/Player.cs#L848-L851
-                var scoreCopy = score.DeepClone();
-
                 spectatorClient.EndPlaying(GameplayState);
+
+                if (GameplayState.HasQuit)
+                {
+                    Logger.Log("Skipping online score submission for quit.");
+                    return;
+                }
 
                 Task.Run(async () =>
                 {
+                    // compare: https://github.com/ppy/osu/blob/ccf1acce56798497edfaf92d3ece933469edcf0a/osu.Game/Screens/Play/Player.cs#L848-L851
+                    var scoreCopy = score.DeepClone();
                     await submitScore(scoreCopy).ConfigureAwait(false);
                 }).FireAndForget();
             }

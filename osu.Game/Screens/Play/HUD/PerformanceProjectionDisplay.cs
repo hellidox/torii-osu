@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using osu.Framework.Threading;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
@@ -86,6 +87,7 @@ namespace osu.Game.Screens.Play.HUD
         private readonly CancellationTokenSource cancellationSource = new CancellationTokenSource();
         private CancellationTokenSource projectionCalculationSource = new CancellationTokenSource();
         private readonly object projectionCalculationLock = new object();
+        private ScheduledDelegate? debouncedProjectionReload;
 
         private static readonly double[] projectionAccuracies = { 95, 97, 99, 100 };
 
@@ -170,16 +172,15 @@ namespace osu.Game.Screens.Play.HUD
                 }
             };
 
-            // Bind to settings changes
-            ppDevVariantEnabled.BindValueChanged(_ => loadProjections());
-            Show95Percent.BindValueChanged(_ => loadProjections());
-            Show97Percent.BindValueChanged(_ => loadProjections());
-            Show99Percent.BindValueChanged(_ => loadProjections());
-            Show100Percent.BindValueChanged(_ => loadProjections());
+            // These can all fire together during load / ruleset / mod changes.
+            // Coalesce them to avoid scheduling several identical difficulty lookups.
+            ppDevVariantEnabled.BindValueChanged(_ => queueProjectionReload(), true);
+            Show95Percent.BindValueChanged(_ => queueProjectionReload());
+            Show97Percent.BindValueChanged(_ => queueProjectionReload());
+            Show99Percent.BindValueChanged(_ => queueProjectionReload());
+            Show100Percent.BindValueChanged(_ => queueProjectionReload());
             LayoutDirection.BindValueChanged(_ => updateLayoutDirection());
-            SortOrder.BindValueChanged(_ => loadProjections());
-
-            loadProjections();
+            SortOrder.BindValueChanged(_ => queueProjectionReload());
         }
 
         private void updateLayoutDirection()
@@ -254,6 +255,15 @@ namespace osu.Game.Screens.Play.HUD
             }, requestTokenSource.Token);
         }
 
+        private void queueProjectionReload()
+        {
+            if (IsDisposed)
+                return;
+
+            debouncedProjectionReload?.Cancel();
+            debouncedProjectionReload = Scheduler.AddDelayed(loadProjections, 60);
+        }
+
         protected override void LoadComplete()
         {
             base.LoadComplete();
@@ -263,18 +273,21 @@ namespace osu.Game.Screens.Play.HUD
 
             if (gameplayState == null && workingBeatmap != null)
             {
-                workingBeatmap.BindValueChanged(_ => loadProjections(), true);
+                workingBeatmap.BindValueChanged(_ => queueProjectionReload(), true);
             }
 
             if (gameplayState == null && rulesetInfoBindable != null)
             {
-                rulesetInfoBindable.BindValueChanged(_ => loadProjections(), true);
+                rulesetInfoBindable.BindValueChanged(_ => queueProjectionReload(), true);
             }
 
             if (gameplayState == null && modsBindable != null)
             {
-                modsBindable.BindValueChanged(_ => loadProjections(), true);
+                modsBindable.BindValueChanged(_ => queueProjectionReload(), true);
             }
+
+            if (gameplayState != null)
+                queueProjectionReload();
         }
 
         private void updateUI(double maxPP)
@@ -332,6 +345,7 @@ namespace osu.Game.Screens.Play.HUD
 
         protected override void Dispose(bool isDisposing)
         {
+            debouncedProjectionReload?.Cancel();
             cancellationSource.Cancel();
             lock (projectionCalculationLock)
             {

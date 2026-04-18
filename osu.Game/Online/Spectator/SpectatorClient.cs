@@ -275,8 +275,17 @@ namespace osu.Game.Online.Spectator
                 if (currentScore != state.Score)
                     return;
 
-                if (pendingFrames.Count > 0)
+                bool shouldFlushPendingFrames = state.HasPassed;
+
+                // On quit/fail, prioritise responsiveness when leaving gameplay.
+                // Flushing a final spectator bundle here can be surprisingly expensive on the update thread.
+                if (shouldFlushPendingFrames && pendingFrames.Count > 0)
                     purgePendingFrames();
+                else
+                {
+                    pendingFrames.Clear();
+                    pendingFrameBundles.Clear();
+                }
 
                 isPlaying = false;
                 currentBeatmap = null;

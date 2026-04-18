@@ -35,8 +35,10 @@ namespace osu.Game.Beatmaps
     /// </summary>
     public partial class BeatmapDifficultyCache : MemoryCachingComponent<BeatmapDifficultyCache.DifficultyCacheLookup, StarDifficulty?>
     {
-        // Too many simultaneous updates can lead to stutters. One thread seems to work fine for song select display purposes.
-        private readonly ThreadedTaskScheduler updateScheduler = new ThreadedTaskScheduler(Environment.ProcessorCount, nameof(BeatmapDifficultyCache));
+        // Keep difficulty calculation throughput predictable.
+        // Upstream intentionally uses a single worker here because parallel recalculation can introduce UI stutter,
+        // especially when multiple overlays request difficulty at once (song select, PP projections, tooltips, etc.).
+        private readonly ThreadedTaskScheduler updateScheduler = new ThreadedTaskScheduler(1, nameof(BeatmapDifficultyCache));
 
         /// <summary>
         /// All bindables that should be updated along with the current ruleset + mods.
