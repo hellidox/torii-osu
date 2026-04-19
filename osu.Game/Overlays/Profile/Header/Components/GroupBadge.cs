@@ -59,13 +59,6 @@ namespace osu.Game.Overlays.Profile.Header.Components
 
             var groupColour = Color4Extensions.FromHex(group.Colour ?? Colour4.White.ToHex());
 
-            // Torii groups: coloured border to distinguish from vanilla osu! badges
-            if (isToriiGroup)
-            {
-                BorderColour = groupColour.Opacity(0.5f);
-                BorderThickness = 1.5f;
-            }
-
             // Base dark background (matches original behaviour)
             AddInternal(new Box
             {
