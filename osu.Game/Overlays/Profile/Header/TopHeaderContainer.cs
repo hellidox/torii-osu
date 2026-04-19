@@ -1,6 +1,7 @@
 ﻿// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Extensions;
@@ -238,6 +239,27 @@ namespace osu.Game.Overlays.Profile.Header
             FinishTransforms(true);
         }
 
+        private static readonly string[] torii_title_priority =
+        {
+            "torii-admin", "torii-dev", "torii-mod", "torii-qat", "torii-pooler",
+            "torii-tournament", "torii-advisor", "torii-alumni", "torii-supporter",
+        };
+
+        private static Colour4? getTopToriiColour(Online.API.Requests.Responses.APIUser? user)
+        {
+            if (user?.Groups is not { Length: > 0 } groups)
+                return null;
+
+            foreach (string id in torii_title_priority)
+            {
+                var match = groups.FirstOrDefault(g => g.Identifier == id);
+                if (match?.Colour != null)
+                    return Color4Extensions.FromHex(match.Colour);
+            }
+
+            return null;
+        }
+
         private void updateUser(UserProfileData? data)
         {
             var user = data?.User;
@@ -245,6 +267,7 @@ namespace osu.Game.Overlays.Profile.Header
             cover.User = user;
             avatar.User = user;
             usernameText.Text = user?.Username ?? string.Empty;
+            usernameText.Colour = getTopToriiColour(user) ?? Colour4.White;
             openUserExternally.Link = $@"{api.Endpoints.WebsiteUrl}/users/{user?.Id ?? 0}";
             userFlag.CountryCode = user?.CountryCode ?? default;
             userCountryText.Text = (user?.CountryCode ?? default).GetDescription();
