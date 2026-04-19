@@ -14,6 +14,7 @@ using osu.Framework.Layout;
 using osu.Game.Configuration;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
+using osu.Game.Online;
 using osu.Game.Online.API;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Screens.Select.Leaderboards;
@@ -366,6 +367,11 @@ namespace osu.Game.Screens.Play.HUD
             }
             else
                 setPanelColour(BackgroundColour ?? colours.Blue4);
+
+            // If this player has a Torii title, always use that colour regardless of leaderboard position.
+            var toriiColour = ToriiColourHelper.GetTopColour(User);
+            if (toriiColour.HasValue)
+                usernameColour = toriiColour.Value;
 
             usernameText.FadeColour(usernameColour, text_transition_duration, Easing.OutQuint);
 

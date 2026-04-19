@@ -39,7 +39,7 @@ namespace osu.Game.Overlays.Profile.Header
         private UserCoverBackground cover = null!;
         private SupporterIcon supporterTag = null!;
         private UpdateableAvatar avatar = null!;
-        private OsuSpriteText usernameText = null!;
+        private GlowingFreeWidthSpriteText usernameText = null!;
         private ExternalLinkButton openUserExternally = null!;
         private OsuSpriteText titleText = null!;
         private UpdateableFlag userFlag = null!;
@@ -128,9 +128,10 @@ namespace osu.Game.Overlays.Profile.Header
                                                     Spacing = new Vector2(5, 0),
                                                     Children = new Drawable[]
                                                     {
-                                                        usernameText = new OsuSpriteText
+                                                        usernameText = new GlowingFreeWidthSpriteText
                                                         {
-                                                            Font = OsuFont.GetFont(size: 24, weight: FontWeight.Regular)
+                                                            Font = OsuFont.GetFont(size: 24, weight: FontWeight.Regular),
+                                                            GlowColour = Colour4.Transparent,
                                                         },
                                                         supporterTag = new SupporterIcon
                                                         {
@@ -267,7 +268,9 @@ namespace osu.Game.Overlays.Profile.Header
             cover.User = user;
             avatar.User = user;
             usernameText.Text = user?.Username ?? string.Empty;
-            usernameText.Colour = getTopToriiColour(user) ?? Colour4.White;
+            var toriiColour = getTopToriiColour(user);
+            usernameText.TextColour = toriiColour ?? Colour4.White;
+            usernameText.GlowColour = toriiColour?.Opacity(0.6f) ?? Colour4.Transparent;
             openUserExternally.Link = $@"{api.Endpoints.WebsiteUrl}/users/{user?.Id ?? 0}";
             userFlag.CountryCode = user?.CountryCode ?? default;
             userCountryText.Text = (user?.CountryCode ?? default).GetDescription();

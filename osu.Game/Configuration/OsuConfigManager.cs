@@ -71,6 +71,7 @@ namespace osu.Game.Configuration
             SetDefault(OsuSetting.AlphaToolbarEnabled, false);
             SetDefault(OsuSetting.AlphaToolbarUse, false);
             SetDefault(OsuSetting.AlphaPpDevModeEnabled, false);
+            SetDefault(OsuSetting.AlphaStableSongSelectEnabled, false);
 
             SetDefault(OsuSetting.SongSelectBackgroundBlur, false);
 
@@ -447,6 +448,7 @@ namespace osu.Game.Configuration
         AlphaToolbarEnabled,
         AlphaToolbarUse,
         AlphaPpDevModeEnabled,
+        AlphaStableSongSelectEnabled,
         SongSelectBackgroundBlur,
         Version,
         ShowFirstRunSetup,

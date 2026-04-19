@@ -36,6 +36,7 @@ using osu.Game.Rulesets.Mods;
 using osu.Game.Utils;
 using CommonStrings = osu.Game.Localisation.CommonStrings;
 using WebCommonStrings = osu.Game.Resources.Localisation.Web.CommonStrings;
+using osu.Game.Online.API.Requests.Responses;
 
 namespace osu.Game.Online.Leaderboards
 {
@@ -170,7 +171,8 @@ namespace osu.Game.Online.Leaderboards
                                         nameLabel = new OsuSpriteText
                                         {
                                             Text = user.Username,
-                                            Font = OsuFont.GetFont(size: 23, weight: FontWeight.Bold, italics: true)
+                                            Font = OsuFont.GetFont(size: 23, weight: FontWeight.Bold, italics: true),
+                                            Colour = ToriiColourHelper.GetTopColour(user as APIUser) ?? Color4.White,
                                         },
                                         new FillFlowContainer
                                         {

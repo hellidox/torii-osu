@@ -18,6 +18,7 @@ using osu.Game.Configuration;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Sprites;
+using osu.Game.Online;
 using osu.Game.Online.API;
 using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Online.Chat;
@@ -129,9 +130,11 @@ namespace osu.Game.Overlays.Chat
 
             // initialise using sane defaults.
             // consumers can use the initialiser of `UsernameColour` to override this if they wish to.
-            UsernameColour = !string.IsNullOrEmpty(message.Sender.Colour)
-                ? Color4Extensions.FromHex(message.Sender.Colour)
-                : default_username_colours[message.SenderId % default_username_colours.Length];
+            // Prefer Torii title colour if the sender has one, else fall back to profile colour or random.
+            UsernameColour = ToriiColourHelper.GetTopColour(message.Sender)
+                ?? (!string.IsNullOrEmpty(message.Sender.Colour)
+                    ? Color4Extensions.FromHex(message.Sender.Colour)
+                    : default_username_colours[message.SenderId % default_username_colours.Length]);
         }
 
         [BackgroundDependencyLoader]

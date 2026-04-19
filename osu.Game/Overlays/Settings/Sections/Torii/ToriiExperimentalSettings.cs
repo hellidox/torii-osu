@@ -28,6 +28,7 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
         private Bindable<bool> alphaToolbarUnlocked = null!;
         private Bindable<bool> alphaToolbarUse = null!;
         private Bindable<bool> alphaPpDevEnabled = null!;
+        private Bindable<bool> alphaStableSongSelectEnabled = null!;
         private IBindable<APIState>? apiState;
 
         private readonly Bindable<SettingsNote.Data?> alphaToolbarNote = new Bindable<SettingsNote.Data?>();
@@ -44,6 +45,7 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
             alphaToolbarUnlocked = config.GetBindable<bool>(OsuSetting.AlphaToolbarEnabled);
             alphaToolbarUse = config.GetBindable<bool>(OsuSetting.AlphaToolbarUse);
             alphaPpDevEnabled = config.GetBindable<bool>(OsuSetting.AlphaPpDevModeEnabled);
+            alphaStableSongSelectEnabled = config.GetBindable<bool>(OsuSetting.AlphaStableSongSelectEnabled);
 
             Children = new Drawable[]
             {
@@ -64,6 +66,14 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
                 {
                     Keywords = new[] { "torii", "pp", "dev", "alpha", "experimental" },
                     Note = { BindTarget = alphaPpDevNote },
+                },
+                new SettingsItemV2(new FormCheckBox
+                {
+                    Caption = "Use stable song select (alpha)",
+                    Current = alphaStableSongSelectEnabled,
+                })
+                {
+                    Keywords = new[] { "torii", "stable", "song", "select", "legacy", "alpha" },
                 },
                 new FillFlowContainer
                 {
@@ -198,6 +208,17 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
                     message = "PP-dev alpha enabled.";
                     break;
 
+                case "torii-alpha-stableselect":
+                case "alpha-stableselect":
+                    alphaStableSongSelectEnabled.Value = true;
+                    message = "Stable song select alpha enabled.";
+                    break;
+
+                case "alpha-stableselect-off":
+                    alphaStableSongSelectEnabled.Value = false;
+                    message = "Stable song select alpha disabled.";
+                    break;
+
                 case "alpha-ppdev-off":
                     alphaPpDevEnabled.Value = false;
                     message = "PP-dev alpha disabled.";
@@ -215,6 +236,7 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
                     alphaToolbarUnlocked.Value = true;
                     alphaToolbarUse.Value = true;
                     alphaPpDevEnabled.Value = true;
+                    alphaStableSongSelectEnabled.Value = true;
                     message = "All alpha features enabled.";
                     break;
 
