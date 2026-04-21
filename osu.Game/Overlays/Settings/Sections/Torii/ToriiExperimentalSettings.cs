@@ -6,6 +6,7 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
+using osu.Framework.Graphics.UserInterface;
 using osu.Framework.Localisation;
 using osu.Game.Configuration;
 using osu.Game.Graphics;
@@ -19,46 +20,25 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
 {
     public partial class ToriiExperimentalSettings : SettingsSubsection
     {
-        protected override LocalisableString Header => "Alpha Features";
-
-        private Bindable<bool> alphaToolbarUnlocked = null!;
-        private Bindable<bool> alphaToolbarUse = null!;
-        private Bindable<bool> alphaStableSongSelectEnabled = null!;
-
-        private readonly Bindable<SettingsNote.Data?> alphaToolbarNote = new Bindable<SettingsNote.Data?>();
+        protected override LocalisableString Header => "Access Codes";
 
         private Container codeInputContainer = null!;
         private OsuTextBox codeBox = null!;
         private Box codeInputGlow = null!;
         private OsuSpriteText statusText = null!;
 
+        // Alpha feature toggles (only visible when their feature is unlocked)
+        private Drawable alphaNavbarToggle = null!;
+
+        private Bindable<bool> alphaToolbarEnabled = null!;
+
         [BackgroundDependencyLoader]
         private void load(OsuConfigManager config)
         {
-            alphaToolbarUnlocked = config.GetBindable<bool>(OsuSetting.AlphaToolbarEnabled);
-            alphaToolbarUse = config.GetBindable<bool>(OsuSetting.AlphaToolbarUse);
-            alphaStableSongSelectEnabled = config.GetBindable<bool>(OsuSetting.AlphaStableSongSelectEnabled);
-
+            alphaToolbarEnabled = config.GetBindable<bool>(OsuSetting.AlphaToolbarEnabled);
 
             Children = new Drawable[]
             {
-                new SettingsItemV2(new FormCheckBox
-                {
-                    Caption = "Use alpha navbar style",
-                    Current = alphaToolbarUse,
-                })
-                {
-                    Keywords = new[] { "torii", "navbar", "alpha", "experimental" },
-                    Note = { BindTarget = alphaToolbarNote },
-                },
-                new SettingsItemV2(new FormCheckBox
-                {
-                    Caption = "Use stable song select (alpha)",
-                    Current = alphaStableSongSelectEnabled,
-                })
-                {
-                    Keywords = new[] { "torii", "stable", "song", "select", "legacy", "alpha" },
-                },
                 new FillFlowContainer
                 {
                     RelativeSizeAxes = Axes.X,
@@ -87,7 +67,7 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
                                 {
                                     RelativeSizeAxes = Axes.X,
                                     Height = 36,
-                                    PlaceholderText = "Enter access token",
+                                    PlaceholderText = "Enter access code",
                                 },
                                 codeInputGlow = new Box
                                 {
@@ -104,31 +84,24 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
                         },
                     },
                 },
+                // Alpha features section — items here are hidden until their code is entered
+                alphaNavbarToggle = new SettingsItemV2(new FormCheckBox
+                {
+                    Caption = "Alpha Navbar",
+                    Current = config.GetBindable<bool>(OsuSetting.AlphaToolbarUse),
+                })
+                {
+                    Keywords = new[] { @"navbar", @"toolbar", @"alpha", @"torii" },
+                    Alpha = alphaToolbarEnabled.Value ? 1f : 0f,
+                },
             };
 
             codeBox.OnCommit += (_, __) => applyCode(codeBox.Current.Value);
-        }
 
-        protected override void LoadComplete()
-        {
-            base.LoadComplete();
-
-            alphaToolbarUnlocked.BindValueChanged(v =>
+            alphaToolbarEnabled.BindValueChanged(e =>
             {
-                if (!v.NewValue)
-                {
-                    // Ensure value can be reset before disabling the control.
-                    alphaToolbarUse.Disabled = false;
-                    alphaToolbarUse.Value = false;
-                    alphaToolbarUse.Disabled = true;
-                    alphaToolbarNote.Value = new SettingsNote.Data("Locked.", SettingsNote.Type.Warning);
-                }
-                else
-                {
-                    alphaToolbarUse.Disabled = false;
-                    alphaToolbarNote.Value = new SettingsNote.Data("Unlocked. Re-open main menu after changing this.", SettingsNote.Type.Informational);
-                }
-            }, true);
+                alphaNavbarToggle.Alpha = e.NewValue ? 1f : 0f;
+            });
         }
 
         private void applyCode(string rawCode)
@@ -137,63 +110,33 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
             if (string.IsNullOrEmpty(code))
                 return;
 
-            string message;
-            bool success = true;
-
             switch (code)
             {
-                case "torii-alpha-navbar":
-                case "alpha-navbar":
-                    alphaToolbarUnlocked.Value = true;
-                    message = "Alpha navbar unlocked.";
-                    break;
-
-                case "alpha-navbar-on":
-                    alphaToolbarUnlocked.Value = true;
-                    alphaToolbarUse.Value = true;
-                    message = "Alpha navbar unlocked and enabled.";
-                    break;
-
-                case "alpha-navbar-off":
-                    if (!alphaToolbarUse.Disabled)
+                case "torii-nav":
+                case "toriibar":
+                case "alpha-nav":
+                    if (alphaToolbarEnabled.Value)
                     {
-                        alphaToolbarUse.Value = false;
-                        message = "Alpha navbar disabled.";
+                        statusText.Text = "Alpha Navbar already unlocked.";
+                        statusText.Colour = new Color4(180, 180, 180, 255);
+                        playCodeInputFeedback(false);
                     }
                     else
                     {
-                        message = "Alpha navbar is locked.";
+                        alphaToolbarEnabled.Value = true;
+                        statusText.Text = "Alpha Navbar unlocked! Toggle it above.";
+                        statusText.Colour = new Color4(129, 242, 145, 255);
+                        playCodeInputFeedback(true);
                     }
                     break;
 
-                case "torii-alpha-stableselect":
-                case "alpha-stableselect":
-                    alphaStableSongSelectEnabled.Value = true;
-                    message = "Stable song select alpha enabled.";
-                    break;
-
-                case "alpha-stableselect-off":
-                    alphaStableSongSelectEnabled.Value = false;
-                    message = "Stable song select alpha disabled.";
-                    break;
-
-                case "torii-alpha-all":
-                case "alpha-all":
-                    alphaToolbarUnlocked.Value = true;
-                    alphaToolbarUse.Value = true;
-                    alphaStableSongSelectEnabled.Value = true;
-                    message = "All alpha features enabled.";
-                    break;
-
                 default:
-                    success = false;
-                    message = "Invalid code.";
+                    statusText.Text = "No active alpha feature for that code.";
+                    statusText.Colour = new Color4(255, 165, 120, 255);
+                    playCodeInputFeedback(false);
                     break;
             }
 
-            statusText.Text = message;
-            statusText.Colour = success ? new Color4(129, 242, 145, 255) : new Color4(255, 165, 120, 255);
-            playCodeInputFeedback(success);
             codeBox.Current.Value = string.Empty;
         }
 
@@ -216,6 +159,5 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
                          .Then()
                          .FadeOut(220, Easing.OutQuint);
         }
-
     }
 }

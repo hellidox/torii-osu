@@ -598,6 +598,21 @@ namespace osu.Game.Overlays.ToriiBriefing
             addItem(createRadarCard(payload));
         }
 
+        public void ForceBriefingRefresh()
+        {
+            if (!api.IsLoggedIn || localUser.Value?.Id <= 1)
+                return;
+
+            var user = localUser.Value;
+            var ruleset = getCurrentRuleset(user);
+            string variant = ToriiPpVariantState.UsePpDevVariant ? "pp_dev" : "stable";
+            string sessionKey = $"{user.Id}:{ruleset.ShortName}:{variant}";
+
+            shownThisSession.Remove(sessionKey);
+            pendingThisSession.Remove(sessionKey);
+            queueBriefingIfReady();
+        }
+
         public void ShowSampleBriefing()
         {
             var ruleset = rulesets?.GetRuleset("osu") ?? rulesets?.GetRuleset(0);
@@ -707,18 +722,9 @@ namespace osu.Game.Overlays.ToriiBriefing
             };
         }
 
-        private BriefingCard createScoreCard(BriefingPayload payload)
+        private Drawable createScoreCard(BriefingPayload payload)
         {
-            var accent = payload.ScoreChanges.Count > 0 ? Color4Extensions.FromHex(@"ff66b3") : Color4Extensions.FromHex(@"69d7ff");
-            string headline = payload.ScoreChanges.Count == 0
-                ? "No top play recalcs detected"
-                : $"{payload.ScoreChanges.Count} top {(payload.ScoreChanges.Count == 1 ? "score moved" : "scores moved")}";
-
-            string detail = payload.ScoreChanges.Count == 0
-                ? "Your top plays match the last briefing snapshot."
-                : string.Join("\n", payload.ScoreChanges.Take(2).Select(c => $"{trim(c.Title, 48)}: {formatPP(c.OldPP)} -> {formatPP(c.NewPP)}"));
-
-            return new BriefingCard(FontAwesome.Solid.Sync, "recalculation watch", headline, detail, accent, payload.ScoreChanges.Count > 0 ? 142 : 126)
+            return new BriefingRecalcCard(payload.ScoreChanges)
             {
                 TooltipText = payload.ScoreChanges.Count == 0
                     ? "When PP changes are detected, the changed scores will be listed here."
@@ -1112,6 +1118,319 @@ namespace osu.Game.Overlays.ToriiBriefing
                                 Font = OsuFont.GetFont(size: 12.5f, weight: FontWeight.SemiBold),
                                 Colour = Color4.White.Opacity(0.42f),
                             },
+                        },
+                    },
+                };
+            }
+        }
+
+        private partial class BriefingRecalcCard : CompositeDrawable, IHasTooltip
+        {
+            private static readonly Color4 accent_changes = Color4Extensions.FromHex(@"ff66b3");
+            private static readonly Color4 accent_no_changes = Color4Extensions.FromHex(@"69d7ff");
+            private static readonly Color4 color_gain = Color4Extensions.FromHex(@"8bffcf");
+            private static readonly Color4 color_loss = Color4Extensions.FromHex(@"ff8f9c");
+
+            public LocalisableString TooltipText { get; set; }
+
+            public BriefingRecalcCard(List<BriefingScoreChange> changes)
+            {
+                var accent = changes.Count > 0 ? accent_changes : accent_no_changes;
+                bool hasChanges = changes.Count > 0;
+
+                RelativeSizeAxes = Axes.X;
+                AutoSizeAxes = Axes.Y;
+                Masking = true;
+                CornerRadius = 20;
+                BorderThickness = 1;
+                BorderColour = accent.Opacity(0.28f);
+                EdgeEffect = new EdgeEffectParameters
+                {
+                    Type = EdgeEffectType.Shadow,
+                    Colour = accent.Opacity(0.12f),
+                    Radius = 14,
+                };
+
+                var textFlow = new FillFlowContainer
+                {
+                    X = 76,
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                    Padding = new MarginPadding { Right = 30 },
+                    Direction = FillDirection.Vertical,
+                    Spacing = new Vector2(0, 4),
+                };
+
+                // Kicker
+                textFlow.Add(new OsuSpriteText
+                {
+                    Text = "RECALCULATION WATCH",
+                    Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                    Colour = accent,
+                });
+
+                // Headline
+                string headline = hasChanges
+                    ? $"{changes.Count} top {(changes.Count == 1 ? "score" : "scores")} recalculated"
+                    : "No top play recalcs detected";
+
+                textFlow.Add(new OsuSpriteText
+                {
+                    Text = headline,
+                    Font = OsuFont.GetFont(size: 22, weight: FontWeight.Bold),
+                    Margin = new MarginPadding { Bottom = 2 },
+                });
+
+                if (!hasChanges)
+                {
+                    textFlow.Add(new OsuSpriteText
+                    {
+                        Text = "Your top plays match the last briefing snapshot.",
+                        Font = OsuFont.GetFont(size: 14.5f, weight: FontWeight.SemiBold),
+                        Colour = Color4.White.Opacity(0.62f),
+                    });
+                }
+                else
+                {
+                    // Top separator
+                    textFlow.Add(new Box
+                    {
+                        RelativeSizeAxes = Axes.X,
+                        Height = 1,
+                        Colour = Color4.White.Opacity(0.10f),
+                        Margin = new MarginPadding { Vertical = 3 },
+                        BypassAutoSizeAxes = Axes.None,
+                    });
+
+                    // Split into top gains and top losses
+                    var gains = changes.Where(c => c.Delta > 0).OrderByDescending(c => c.Delta).ToList();
+                    var losses = changes.Where(c => c.Delta < 0).OrderBy(c => c.Delta).ToList();
+
+                    // -- TOP GAINS --
+                    if (gains.Count > 0)
+                    {
+                        textFlow.Add(new OsuSpriteText
+                        {
+                            Text = "TOP GAINS",
+                            Font = OsuFont.GetFont(size: 11, weight: FontWeight.Bold),
+                            Colour = color_gain.Opacity(0.72f),
+                            Margin = new MarginPadding { Top = 2, Bottom = 1 },
+                        });
+
+                        int gainDisplay = Math.Min(5, gains.Count);
+                        for (int i = 0; i < gainDisplay; i++)
+                        {
+                            var change = gains[i];
+                            textFlow.Add(new FillFlowContainer
+                            {
+                                RelativeSizeAxes = Axes.X,
+                                AutoSizeAxes = Axes.Y,
+                                Direction = FillDirection.Horizontal,
+                                Spacing = new Vector2(6, 0),
+                                Children = new Drawable[]
+                                {
+                                    new OsuSpriteText
+                                    {
+                                        Text = $"▲ {formatSignedPP(change.Delta)}",
+                                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
+                                        Colour = color_gain,
+                                        Width = 88,
+                                    },
+                                    new OsuSpriteText
+                                    {
+                                        Text = trim(change.Title, 44),
+                                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.SemiBold),
+                                        Colour = Color4.White.Opacity(0.78f),
+                                    },
+                                },
+                            });
+                        }
+
+                        if (gains.Count > 5)
+                        {
+                            textFlow.Add(new OsuSpriteText
+                            {
+                                Text = $"  + {gains.Count - 5} more gains",
+                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                                Colour = Color4.White.Opacity(0.38f),
+                            });
+                        }
+                    }
+
+                    // Separator between sections (only when both exist)
+                    if (gains.Count > 0 && losses.Count > 0)
+                    {
+                        textFlow.Add(new Box
+                        {
+                            RelativeSizeAxes = Axes.X,
+                            Height = 1,
+                            Colour = Color4.White.Opacity(0.08f),
+                            Margin = new MarginPadding { Vertical = 5 },
+                        });
+                    }
+
+                    // -- TOP LOSSES --
+                    if (losses.Count > 0)
+                    {
+                        textFlow.Add(new OsuSpriteText
+                        {
+                            Text = "TOP LOSSES",
+                            Font = OsuFont.GetFont(size: 11, weight: FontWeight.Bold),
+                            Colour = color_loss.Opacity(0.72f),
+                            Margin = new MarginPadding { Top = 2, Bottom = 1 },
+                        });
+
+                        int lossDisplay = Math.Min(5, losses.Count);
+                        for (int i = 0; i < lossDisplay; i++)
+                        {
+                            var change = losses[i];
+                            textFlow.Add(new FillFlowContainer
+                            {
+                                RelativeSizeAxes = Axes.X,
+                                AutoSizeAxes = Axes.Y,
+                                Direction = FillDirection.Horizontal,
+                                Spacing = new Vector2(6, 0),
+                                Children = new Drawable[]
+                                {
+                                    new OsuSpriteText
+                                    {
+                                        Text = $"▼ {formatSignedPP(change.Delta)}",
+                                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
+                                        Colour = color_loss,
+                                        Width = 88,
+                                    },
+                                    new OsuSpriteText
+                                    {
+                                        Text = trim(change.Title, 44),
+                                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.SemiBold),
+                                        Colour = Color4.White.Opacity(0.78f),
+                                    },
+                                },
+                            });
+                        }
+
+                        if (losses.Count > 5)
+                        {
+                            textFlow.Add(new OsuSpriteText
+                            {
+                                Text = $"  + {losses.Count - 5} more losses",
+                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                                Colour = Color4.White.Opacity(0.38f),
+                            });
+                        }
+                    }
+
+                    // Highlight footer (best gain / worst loss summary)
+                    if (gains.Count > 0 || losses.Count > 0)
+                    {
+                        textFlow.Add(new Box
+                        {
+                            RelativeSizeAxes = Axes.X,
+                            Height = 1,
+                            Colour = Color4.White.Opacity(0.10f),
+                            Margin = new MarginPadding { Vertical = 3 },
+                        });
+
+                        if (gains.Count > 0)
+                        {
+                            var g = gains[0];
+                            textFlow.Add(buildHighlightRow("▲ BEST GAIN", g.Title, formatSignedPP(g.Delta), color_gain));
+                        }
+
+                        if (losses.Count > 0)
+                        {
+                            var l = losses[0];
+                            textFlow.Add(buildHighlightRow("▼ WORST LOSS", l.Title, formatSignedPP(l.Delta), color_loss));
+                        }
+                    }
+                }
+
+                InternalChildren = new Drawable[]
+                {
+                    new Box
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Colour = Color4Extensions.FromHex(@"18162d").Opacity(0.92f),
+                        BypassAutoSizeAxes = Axes.Y,
+                    },
+                    new Box
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Colour = ColourInfo.GradientHorizontal(accent.Opacity(0.08f), Color4.Transparent),
+                        BypassAutoSizeAxes = Axes.Y,
+                    },
+                    new Box
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Width = 0.018f,
+                        Colour = accent,
+                        BypassAutoSizeAxes = Axes.Y,
+                    },
+                    new Container
+                    {
+                        RelativeSizeAxes = Axes.X,
+                        AutoSizeAxes = Axes.Y,
+                        Padding = new MarginPadding { Horizontal = 22, Vertical = 18 },
+                        Children = new Drawable[]
+                        {
+                            new CircularContainer
+                            {
+                                Anchor = Anchor.TopLeft,
+                                Origin = Anchor.TopLeft,
+                                Y = 6,
+                                Size = new Vector2(58),
+                                Masking = true,
+                                Children = new Drawable[]
+                                {
+                                    new Box
+                                    {
+                                        RelativeSizeAxes = Axes.Both,
+                                        Colour = accent.Opacity(0.16f),
+                                    },
+                                    new SpriteIcon
+                                    {
+                                        Anchor = Anchor.Centre,
+                                        Origin = Anchor.Centre,
+                                        Size = new Vector2(22),
+                                        Icon = FontAwesome.Solid.Sync,
+                                        Colour = accent,
+                                    },
+                                },
+                            },
+                            textFlow,
+                        },
+                    },
+                };
+            }
+
+            private static FillFlowContainer buildHighlightRow(string label, string title, string value, Color4 color)
+            {
+                return new FillFlowContainer
+                {
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                    Direction = FillDirection.Horizontal,
+                    Spacing = new Vector2(6, 0),
+                    Children = new Drawable[]
+                    {
+                        new OsuSpriteText
+                        {
+                            Text = label,
+                            Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                            Colour = color,
+                            Width = 94,
+                        },
+                        new OsuSpriteText
+                        {
+                            Text = trim(title, 32),
+                            Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                            Colour = Color4.White.Opacity(0.82f),
+                        },
+                        new OsuSpriteText
+                        {
+                            Text = $"  {value}",
+                            Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                            Colour = color,
                         },
                     },
                 };
