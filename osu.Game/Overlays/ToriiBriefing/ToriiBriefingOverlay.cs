@@ -634,16 +634,65 @@ namespace osu.Game.Overlays.ToriiBriefing
         {
             var stored = loadLastBriefing();
 
-            if (stored == null)
-                return;
-
-            var payload = restoreStoredBriefing(stored);
+            var payload = stored != null
+                ? restoreStoredBriefing(stored)
+                : restoreBriefingFromSnapshots();
 
             if (payload == null)
                 return;
 
             displayPayload(payload);
             Show();
+        }
+
+        private BriefingPayload restoreBriefingFromSnapshots()
+        {
+            if (localUser.Value?.Id <= 1)
+                return null;
+
+            var user = localUser.Value;
+            var ruleset = getCurrentRuleset(user);
+            var state = loadSnapshotState();
+            string preferredVariant = ToriiPpVariantState.UsePpDevVariant ? "pp_dev" : "stable";
+
+            BriefingSnapshot current = null;
+            BriefingSnapshot previous = null;
+            string selectedVariant = preferredVariant;
+
+            string currentKey = $"{user.Id}:{ruleset.ShortName}:{preferredVariant}";
+
+            if (state.Users.TryGetValue(currentKey, out current))
+            {
+                if (preferredVariant == "pp_dev")
+                    state.Users.TryGetValue($"{user.Id}:{ruleset.ShortName}:stable", out previous);
+            }
+            else if (preferredVariant == "pp_dev"
+                     && state.Users.TryGetValue($"{user.Id}:{ruleset.ShortName}:pp_dev", out current))
+            {
+                selectedVariant = "pp_dev";
+                state.Users.TryGetValue($"{user.Id}:{ruleset.ShortName}:stable", out previous);
+            }
+            else if (state.Users.TryGetValue($"{user.Id}:{ruleset.ShortName}:stable", out current))
+            {
+                selectedVariant = "stable";
+            }
+
+            if (current == null)
+                return null;
+
+            return new BriefingPayload
+            {
+                User = user,
+                Ruleset = ruleset,
+                Variant = selectedVariant,
+                Current = current,
+                Previous = previous,
+                ScoreChanges = getScoreChanges(previous, current),
+                UnreadMessages = getUnreadMessages(user.Id),
+                RadarEvents = new List<BriefingRadarEvent>(),
+                RadarFirstSnapshot = false,
+                RadarTrackedCount = 0,
+            };
         }
 
         public void ShowPpDevPromotionBriefing()
