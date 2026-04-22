@@ -43,6 +43,7 @@ namespace osu.Game.Overlays.ToriiBriefing
     public partial class ToriiBriefingOverlay : OsuFocusedOverlayContainer
     {
         private const string snapshot_filename = @"briefing-state.json";
+        private const string last_briefing_filename = @"last-briefing.json";
 
         private readonly ChannelManager channelManager;
         private readonly HashSet<string> shownThisSession = new HashSet<string>();
@@ -447,6 +448,8 @@ namespace osu.Game.Overlays.ToriiBriefing
             var scores = pending.TopScores ?? new List<SoloScoreInfo>();
             string variant = pending.UsePpDev ? "pp_dev" : "stable";
             string snapshotKey = $"{user.Id}:{pending.Ruleset.ShortName}:{variant}";
+            string stableSnapshotKey = $"{user.Id}:{pending.Ruleset.ShortName}:stable";
+            string promotionMigrationKey = $"{user.Id}:{pending.Ruleset.ShortName}:ppdev-promotion";
 
             var currentSnapshot = new BriefingSnapshot
             {
@@ -463,6 +466,17 @@ namespace osu.Game.Overlays.ToriiBriefing
 
             var state = loadSnapshotState();
             state.Users.TryGetValue(snapshotKey, out var previousSnapshot);
+
+            if (pending.UsePpDev
+                && !state.ConsumedPromotionMigrations.Contains(promotionMigrationKey)
+                && state.Users.TryGetValue(stableSnapshotKey, out var stableSnapshot))
+            {
+                // The first pp-dev briefing after Torii promoted pp-dev to the main osu! variant
+                // should compare against the user's last stable snapshot, even if a blank/partial
+                // pp-dev snapshot was already written earlier in the same update window.
+                previousSnapshot = stableSnapshot;
+                state.ConsumedPromotionMigrations.Add(promotionMigrationKey);
+            }
 
             state.Users[snapshotKey] = currentSnapshot;
             saveSnapshotState(state);
@@ -583,8 +597,11 @@ namespace osu.Game.Overlays.ToriiBriefing
 
         private void displayPayload(BriefingPayload payload)
         {
+            saveLastBriefing(payload);
+
             title.Text = $"Welcome back, {payload.User.Username}.";
-            subtitle.Text = $"{payload.Ruleset.Name} - {(payload.Variant == "pp_dev" ? "latest pp-dev calculations" : "standard calculations")} - {DateTimeOffset.Now:MMM d, HH:mm}";
+            var capturedAt = payload.Current?.CapturedAt.ToLocalTime() ?? DateTimeOffset.Now;
+            subtitle.Text = $"{payload.Ruleset.Name} - {(payload.Variant == "pp_dev" ? "latest pp-dev calculations" : "standard calculations")} - {capturedAt:MMM d, HH:mm}";
 
             cardFlow.Clear();
 
@@ -611,6 +628,55 @@ namespace osu.Game.Overlays.ToriiBriefing
             shownThisSession.Remove(sessionKey);
             pendingThisSession.Remove(sessionKey);
             queueBriefingIfReady();
+        }
+
+        public void ShowLastBriefing()
+        {
+            var stored = loadLastBriefing();
+
+            if (stored == null)
+                return;
+
+            var payload = restoreStoredBriefing(stored);
+
+            if (payload == null)
+                return;
+
+            displayPayload(payload);
+            Show();
+        }
+
+        public void ShowPpDevPromotionBriefing()
+        {
+            if (localUser.Value?.Id <= 1)
+                return;
+
+            var user = localUser.Value;
+            var ruleset = getCurrentRuleset(user);
+            var state = loadSnapshotState();
+
+            string stableSnapshotKey = $"{user.Id}:{ruleset.ShortName}:stable";
+            string ppDevSnapshotKey = $"{user.Id}:{ruleset.ShortName}:pp_dev";
+
+            if (!state.Users.TryGetValue(stableSnapshotKey, out var stableSnapshot) || !state.Users.TryGetValue(ppDevSnapshotKey, out var ppDevSnapshot))
+                return;
+
+            var payload = new BriefingPayload
+            {
+                User = user,
+                Ruleset = ruleset,
+                Variant = "pp_dev",
+                Current = ppDevSnapshot,
+                Previous = stableSnapshot,
+                ScoreChanges = getScoreChanges(stableSnapshot, ppDevSnapshot),
+                UnreadMessages = new List<BriefingMessage>(),
+                RadarEvents = new List<BriefingRadarEvent>(),
+                RadarFirstSnapshot = false,
+                RadarTrackedCount = 0,
+            };
+
+            displayPayload(payload);
+            Show();
         }
 
         public void ShowSampleBriefing()
@@ -833,6 +899,23 @@ namespace osu.Game.Overlays.ToriiBriefing
             }
         }
 
+        private StoredBriefing loadLastBriefing()
+        {
+            try
+            {
+                if (!briefingStorage.Exists(last_briefing_filename))
+                    return null;
+
+                using (var stream = briefingStorage.GetStream(last_briefing_filename, FileAccess.Read, FileMode.Open))
+                using (var reader = new StreamReader(stream))
+                    return reader.ReadToEnd().Deserialize<StoredBriefing>();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private void saveSnapshotState(BriefingState state)
         {
             try
@@ -845,6 +928,61 @@ namespace osu.Game.Overlays.ToriiBriefing
             {
                 // Briefing snapshots are a convenience feature; never break login if local storage is unavailable.
             }
+        }
+
+        private void saveLastBriefing(BriefingPayload payload)
+        {
+            try
+            {
+                var stored = new StoredBriefing
+                {
+                    UserId = payload.User?.Id ?? 0,
+                    Username = payload.User?.Username ?? payload.Current?.Username ?? "player",
+                    Ruleset = payload.Ruleset?.ShortName ?? payload.Current?.Ruleset ?? "osu",
+                    Variant = payload.Variant ?? payload.Current?.Variant ?? "stable",
+                    Current = payload.Current,
+                    Previous = payload.Previous,
+                    ScoreChanges = payload.ScoreChanges ?? new List<BriefingScoreChange>(),
+                    UnreadMessages = payload.UnreadMessages ?? new List<BriefingMessage>(),
+                    RadarEvents = payload.RadarEvents ?? new List<BriefingRadarEvent>(),
+                    RadarFirstSnapshot = payload.RadarFirstSnapshot,
+                    RadarTrackedCount = payload.RadarTrackedCount,
+                };
+
+                using (var stream = briefingStorage.GetStream(last_briefing_filename, FileAccess.Write, FileMode.Create))
+                using (var writer = new StreamWriter(stream))
+                    writer.Write(stored.Serialize());
+            }
+            catch
+            {
+                // Re-showing the last briefing is a convenience feature; never break the live overlay.
+            }
+        }
+
+        private BriefingPayload restoreStoredBriefing(StoredBriefing stored)
+        {
+            var ruleset = rulesets?.GetRuleset(stored.Ruleset) ?? rulesets?.GetRuleset("osu") ?? rulesets?.GetRuleset(0);
+
+            if (ruleset == null)
+                return null;
+
+            return new BriefingPayload
+            {
+                User = new APIUser
+                {
+                    Id = stored.UserId,
+                    Username = stored.Username,
+                },
+                Ruleset = ruleset,
+                Variant = stored.Variant,
+                Current = stored.Current,
+                Previous = stored.Previous,
+                ScoreChanges = stored.ScoreChanges ?? new List<BriefingScoreChange>(),
+                UnreadMessages = stored.UnreadMessages ?? new List<BriefingMessage>(),
+                RadarEvents = stored.RadarEvents ?? new List<BriefingRadarEvent>(),
+                RadarFirstSnapshot = stored.RadarFirstSnapshot,
+                RadarTrackedCount = stored.RadarTrackedCount,
+            };
         }
 
         protected override void PopIn()
@@ -921,6 +1059,24 @@ namespace osu.Game.Overlays.ToriiBriefing
         {
             [JsonProperty("users")]
             public Dictionary<string, BriefingSnapshot> Users { get; set; } = new Dictionary<string, BriefingSnapshot>();
+
+            [JsonProperty("consumed_promotion_migrations")]
+            public HashSet<string> ConsumedPromotionMigrations { get; set; } = new HashSet<string>();
+        }
+
+        private sealed class StoredBriefing
+        {
+            public int UserId { get; set; }
+            public string Username { get; set; }
+            public string Ruleset { get; set; }
+            public string Variant { get; set; }
+            public BriefingSnapshot Current { get; set; }
+            public BriefingSnapshot Previous { get; set; }
+            public List<BriefingScoreChange> ScoreChanges { get; set; } = new List<BriefingScoreChange>();
+            public List<BriefingMessage> UnreadMessages { get; set; } = new List<BriefingMessage>();
+            public List<BriefingRadarEvent> RadarEvents { get; set; } = new List<BriefingRadarEvent>();
+            public bool RadarFirstSnapshot { get; set; }
+            public int RadarTrackedCount { get; set; }
         }
 
         private sealed class BriefingSnapshot
