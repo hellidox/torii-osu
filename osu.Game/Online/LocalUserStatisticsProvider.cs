@@ -7,6 +7,7 @@ using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
+using osu.Framework.Threading;
 using osu.Game.Configuration;
 using osu.Game.Extensions;
 using osu.Game.Online.API;
@@ -71,16 +72,54 @@ namespace osu.Game.Online
             });
         }
 
+        private ScheduledDelegate? deferredSecondaryStatsFetch;
+
         private void initialiseStatistics()
         {
             statisticsCache.Clear();
+            deferredSecondaryStatsFetch?.Cancel();
 
+            if (api.LocalUser.Value == null || api.LocalUser.Value.Id <= 1)
+                return;
+
+            // Fetch the user's preferred ruleset stats first so the toolbar profile card,
+            // briefing, and any "open my profile" interaction have data right away.
+            // The other 7 ruleset/special-ruleset stats requests used to fire serially in
+            // the same tick — each one a full GetUserRequest against the API — and that
+            // backed up the queue behind the briefing's requests on login. Defer them so
+            // login feels instant and the secondary caches still warm up shortly after.
+            var preferred = getPreferredRuleset();
+            if (preferred != null)
+                RefetchStatistics(preferred);
+
+            deferredSecondaryStatsFetch = Scheduler.AddDelayed(fetchAllRulesetStats, 1500);
+        }
+
+        private RulesetInfo? getPreferredRuleset()
+        {
+            var user = api.LocalUser.Value;
+            if (user == null || user.Id <= 1)
+                return null;
+
+            if (!string.IsNullOrEmpty(user.PlayMode))
+            {
+                var preferred = rulesets.AvailableRulesets.FirstOrDefault(r => r.ShortName == user.PlayMode && r.IsLegacyRuleset());
+                if (preferred != null)
+                    return preferred;
+            }
+
+            return rulesets.AvailableRulesets.FirstOrDefault(r => r.IsLegacyRuleset());
+        }
+
+        private void fetchAllRulesetStats()
+        {
             if (api.LocalUser.Value == null || api.LocalUser.Value.Id <= 1)
                 return;
 
             foreach (var ruleset in rulesets.AvailableRulesets.Where(r => r.IsLegacyRuleset()))
             {
-                RefetchStatistics(ruleset);
+                if (!statisticsCache.ContainsKey(ruleset.ShortName))
+                    RefetchStatistics(ruleset);
 
                 switch (ruleset.ShortName)
                 {
