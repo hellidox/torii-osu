@@ -103,7 +103,10 @@ namespace osu.Game.Users
             UserPresence? presence = metadata?.GetPresence(User.OnlineID);
             UserStatus status = presence?.Status ?? UserStatus.Offline;
             UserActivity? activity = presence?.Activity;
-            string? clientName = presence?.ClientName;
+            // Every online connection on the Torii spectator server is by definition a Torii client,
+            // so we treat any non-offline presence as a Torii client until upstream UserPresence
+            // gains a server-populated ClientName field that survives the NuGet boundary.
+            string? clientName = presence?.ClientName ?? (status != UserStatus.Offline ? "torii" : null);
 
             if (status == lastStatus && activity == lastActivity && clientName == lastClientName)
                 return;
