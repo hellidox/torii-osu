@@ -371,12 +371,12 @@ namespace osu.Game.Overlays.ToriiBriefing
             userRequest.Success += response =>
             {
                 pending.User = response;
-                pending.MarkComplete();
+                pending.MarkBlockingComplete();
                 showWhenComplete(pending);
             };
             userRequest.Failure += _ =>
             {
-                pending.MarkComplete();
+                pending.MarkBlockingComplete();
                 showWhenComplete(pending);
             };
 
@@ -384,27 +384,25 @@ namespace osu.Game.Overlays.ToriiBriefing
             scoresRequest.Success += response =>
             {
                 pending.TopScores = response;
-                pending.MarkComplete();
+                pending.MarkBlockingComplete();
                 showWhenComplete(pending);
             };
             scoresRequest.Failure += _ =>
             {
-                pending.MarkComplete();
+                pending.MarkBlockingComplete();
                 showWhenComplete(pending);
             };
 
+            // Radar is an enhancement: if it's slow or unavailable (older server), the briefing
+            // still has plenty to show. Fire-and-forget so it never delays the overlay appearing.
             var radarRequest = new GetToriiBriefingRadarRequest(ruleset);
             radarRequest.Success += response =>
             {
                 pending.Radar = response;
-                pending.MarkComplete();
-                showWhenComplete(pending);
             };
             radarRequest.Failure += _ =>
             {
                 // Older servers won't have this endpoint yet. Keep the briefing useful using local fallback cards.
-                pending.MarkComplete();
-                showWhenComplete(pending);
             };
 
             try
@@ -1086,7 +1084,11 @@ namespace osu.Game.Overlays.ToriiBriefing
 
         private sealed class PendingBriefing
         {
-            private int remainingRequests = 3;
+            // We only block on the two requests whose payload meaningfully changes the briefing
+            // (user stats and top scores). The radar is purely additive UI, so we display the
+            // briefing as soon as User+TopScores are in and let the radar fill in afterwards.
+            // This shaves the slowest (or failing) request out of the critical path on login.
+            private int remainingBlockingRequests = 2;
 
             public readonly int RequestId;
             public readonly APIUser LocalUser;
@@ -1097,7 +1099,7 @@ namespace osu.Game.Overlays.ToriiBriefing
             public APIUser User;
             public List<SoloScoreInfo> TopScores;
             public ToriiBriefingRadarResponse Radar;
-            public bool IsComplete => remainingRequests <= 0;
+            public bool IsComplete => remainingBlockingRequests <= 0;
 
             public PendingBriefing(int requestId, string sessionKey, APIUser localUser, RulesetInfo ruleset, bool usePpDev)
             {
@@ -1108,7 +1110,7 @@ namespace osu.Game.Overlays.ToriiBriefing
                 UsePpDev = usePpDev;
             }
 
-            public void MarkComplete() => remainingRequests--;
+            public void MarkBlockingComplete() => remainingBlockingRequests--;
         }
 
         private sealed class BriefingPayload
