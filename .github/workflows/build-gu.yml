@@ -929,12 +929,15 @@ jobs:
 
   register-client-hashes:
     name: Register client hashes with Torii server
-    # Run after every successful build (push to master, tag push, or workflow_dispatch).
-    # Hashes change with every build of the desktop binaries, so the server needs them
-    # registered even before a tagged release exists. Silently skips if the webhook
-    # secret/URL aren't configured.
-    if: needs.build.result == 'success'
-    needs: [build, version]
+    # Only register hashes for runs that produce a published release (tag push,
+    # release event, or workflow_dispatch — the same set of triggers that the
+    # `release` job runs on). Push-to-master builds also build binaries, but the
+    # Windows PE timestamp makes those hashes diverge from the released binaries
+    # so registering them just creates orphan entries the server will never see.
+    if: |
+      needs.build.result == 'success' &&
+      needs.release.result == 'success'
+    needs: [build, version, release]
     runs-on: ubuntu-latest
     steps:
     - name: Download hash artifacts
