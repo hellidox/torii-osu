@@ -12,81 +12,195 @@ using osuTK.Graphics;
 namespace osu.Game.Graphics.UserEffects.Presets
 {
     /// <summary>
-    /// Admin / Dev aura: hot embers rising upward with the occasional brighter
-    /// "static charge" flash. Reads as authority + heat without being noisy —
-    /// each particle is a small additive ember + a slightly bigger glow halo.
-    /// Color palette mirrors the red used for the admin name everywhere.
+    /// Admin aura: a low pulsing red halo behind the name plus tight columns of
+    /// rising "sparks" — tapered vertical lines with a glowing head — and the
+    /// occasional star-burst flash for visual variety. Reads as authority +
+    /// barely-contained heat, without the lazy "circles popping in" feel the
+    /// first revision had. Tightly bounded so particles stay visually anchored
+    /// to the username and don't drift far outside its box.
     /// </summary>
     public class AdminAuraPreset : AuraPreset
     {
         public const string ID = "admin-embers";
 
-        // Warm red palette tuned to match the existing admin name colour. Three
-        // shades so individual embers feel distinct rather than monochrome.
-        private static readonly Color4[] ember_palette =
-        {
-            new Color4(255, 90, 76, 255),   // bright cherry
-            new Color4(255, 140, 80, 255),  // amber-orange
-            new Color4(255, 60, 40, 255),   // deep red
-        };
+        // Hot palette tuned around bright cherry / amber so multiple stacking
+        // particles read as fire rather than monochrome dots.
+        private static readonly Color4 spark_bright = new Color4(255, 200, 140, 255);
+        private static readonly Color4 spark_red    = new Color4(255, 80, 60, 255);
+        private static readonly Color4 spark_amber  = new Color4(255, 140, 80, 255);
+        private static readonly Color4 halo_red     = new Color4(255, 60, 50, 255);
 
         public override string AuraId => ID;
 
-        public override double SpawnIntervalMs => 200;
-        public override double SpawnJitterMs => 140;
-        public override int MaxAlive => 12;
+        // Faster cadence than goof (admin should feel "energetic") but capped
+        // so a chat full of admins doesn't tank framerate.
+        public override double SpawnIntervalMs => 180;
+        public override double SpawnJitterMs => 100;
+        public override int MaxAlive => 9;
+
+        /// <summary>
+        /// Soft red halo that breathes in/out continuously. Lives underneath
+        /// the particle stream; defines the aura's resting "mood" so the name
+        /// reads as decorated even between particle spawns.
+        /// </summary>
+        public override Drawable? CreateBackground()
+        {
+            var halo = new Box
+            {
+                RelativeSizeAxes = Axes.Both,
+                Anchor = Anchor.Centre,
+                Origin = Anchor.Centre,
+                Colour = halo_red,
+                Alpha = 0,
+                // Slightly oversized so the glow bleeds past the text edges
+                // without needing a real blur pass.
+                Scale = new Vector2(1.25f, 1.6f),
+            };
+
+            // ~1.4s in / 1.4s out, looped. Kept subtle (max 0.18 alpha) so it
+            // doesn't compete with the particle spawns or wash out the name.
+            halo.Loop(t => t
+                .FadeTo(0.18f, 1400, Easing.InOutSine)
+                .Then()
+                .FadeTo(0.04f, 1400, Easing.InOutSine));
+
+            return halo;
+        }
 
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {
-            // Spawn from a band along the bottom edge of the username so embers
-            // appear to lift OFF the text rather than pop in around it.
-            float startX = (float)(random.NextDouble() * parentSize.X);
-            float startY = parentSize.Y * (0.6f + (float)random.NextDouble() * 0.4f);
+            // 70% spark (rising tapered line), 25% sparkle (bright star burst),
+            // 5% slow ember (round, drifts higher) — distribution tuned so the
+            // dominant motion is upward sparks with occasional brighter accents.
+            double roll = random.NextDouble();
+            if (roll < 0.70)
+                emitSpark(parent, parentSize, random);
+            else if (roll < 0.95)
+                emitSparkle(parent, parentSize, random);
+            else
+                emitEmber(parent, parentSize, random);
+        }
 
-            // Drift upward + a small horizontal sway so columns of embers don't
-            // line up. Distance is roughly 1.2x the username height.
-            float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.4f);
-            float driftY = -(parentSize.Y * 1.2f + (float)random.NextDouble() * 8f);
+        // Thin tapered line rising fast and short. The dominant particle type —
+        // gives the aura its "shower of sparks" character.
+        private void emitSpark(Container parent, Vector2 parentSize, Random random)
+        {
+            // Spawn from the bottom 35% of the name, columns spread across the
+            // full width. Tighter than the original (which used 60-100% Y).
+            float startX = (float)(0.05 + random.NextDouble() * 0.9) * parentSize.X;
+            float startY = parentSize.Y * (0.65f + (float)random.NextDouble() * 0.3f);
 
-            float startSize = 3.5f + (float)random.NextDouble() * 2.5f;
-            float endSize = startSize * (0.4f + (float)random.NextDouble() * 0.3f);
+            // Mostly straight up with a tiny lateral wobble. Drift height is
+            // ~70% of the name height — keeps sparks visually anchored.
+            float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.12f);
+            float driftY = -parentSize.Y * (0.55f + (float)random.NextDouble() * 0.35f);
 
-            Color4 colour = ember_palette[random.Next(ember_palette.Length)];
+            float length = 5f + (float)random.NextDouble() * 4f;
 
-            // Small chance of a "spark" — brighter, faster, shorter-lived ember.
-            // Keeps the aura from looking like a uniform conveyor belt.
-            bool isSpark = random.NextDouble() < 0.18;
-            if (isSpark)
+            Color4 colour = random.NextDouble() < 0.5
+                ? spark_red
+                : (random.NextDouble() < 0.5 ? spark_amber : spark_bright);
+
+            // Bright "head" + slightly longer dim "tail" stacked for a tapered
+            // look. Both additive so they bloom into each other and the halo.
+            var head = new Box
             {
-                startSize *= 1.6f;
-                endSize *= 0.6f;
-                colour = new Color4(255, 220, 180, 255);
-            }
+                Anchor = Anchor.Centre,
+                Origin = Anchor.BottomCentre,
+                Width = 1.5f,
+                Height = length * 0.35f,
+                Colour = colour,
+                Alpha = 0.95f,
+            };
 
-            double lifetime = isSpark ? 700 : 1100 + random.NextDouble() * 500;
+            var tail = new Box
+            {
+                Anchor = Anchor.Centre,
+                Origin = Anchor.TopCentre,
+                Width = 1.0f,
+                Height = length * 0.65f,
+                Colour = colour,
+                Alpha = 0.5f,
+            };
 
-            // Each particle is a tiny container holding an ember "core" plus a
-            // softer halo at 1.8x size — additive blending fakes a glow without
-            // needing a real blur filter.
+            var particle = new Container
+            {
+                AutoSizeAxes = Axes.Both,
+                Position = new Vector2(startX, startY),
+                Children = new Drawable[] { tail, head },
+                Alpha = 0,
+            };
+
+            parent.Add(particle);
+
+            double lifetime = 600 + random.NextDouble() * 400;
+            particle.FadeTo(1f, 80, Easing.OutQuad);
+            particle.MoveTo(new Vector2(startX + driftX, startY + driftY), lifetime, Easing.OutCubic);
+            particle.ScaleTo(0.6f, lifetime, Easing.OutQuad);
+            particle.Delay(lifetime - 180).FadeOut(180, Easing.InQuad).Expire();
+        }
+
+        // Star-shaped flash that pops in, scales up, fades. Sparser than the
+        // sparks; gives the aura its "static charge" beat.
+        private void emitSparkle(Container parent, Vector2 parentSize, Random random)
+        {
+            float startX = (float)(0.1 + random.NextDouble() * 0.8) * parentSize.X;
+            float startY = (float)(0.2 + random.NextDouble() * 0.6) * parentSize.Y;
+
+            float size = 4.5f + (float)random.NextDouble() * 2.5f;
+
+            var sparkle = new SpriteIcon
+            {
+                Anchor = Anchor.Centre,
+                Origin = Anchor.Centre,
+                Icon = FontAwesome.Solid.Star,
+                Size = new Vector2(size),
+                Colour = spark_bright,
+                Alpha = 0,
+                Position = new Vector2(startX, startY),
+            };
+
+            parent.Add(sparkle);
+
+            // Pop in fast, briefly scale up + rotate, fade out. Total ~500ms.
+            sparkle.RotateTo((float)((random.NextDouble() - 0.5) * 90));
+            sparkle.FadeTo(0.95f, 90, Easing.OutQuad);
+            sparkle.ScaleTo(1.6f, 250, Easing.OutQuad);
+            sparkle.Delay(120).FadeOut(380, Easing.InCubic);
+            sparkle.RotateTo(sparkle.Rotation + 60, 500, Easing.OutSine).Expire();
+        }
+
+        // Slow round ember that drifts higher and lingers — adds a softer
+        // counter-beat to the fast spark columns.
+        private void emitEmber(Container parent, Vector2 parentSize, Random random)
+        {
+            float startX = (float)(0.15 + random.NextDouble() * 0.7) * parentSize.X;
+            float startY = parentSize.Y * (0.7f + (float)random.NextDouble() * 0.3f);
+
+            float driftY = -parentSize.Y * (1.0f + (float)random.NextDouble() * 0.3f);
+            float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.18f);
+
+            float size = 4f + (float)random.NextDouble() * 2.5f;
+
             var halo = new Circle
             {
                 Anchor = Anchor.Centre,
                 Origin = Anchor.Centre,
-                Size = new Vector2(startSize * 2.0f),
-                Colour = colour,
-                Alpha = 0.35f,
+                Size = new Vector2(size * 1.8f),
+                Colour = spark_red,
+                Alpha = 0.3f,
             };
 
             var core = new Circle
             {
                 Anchor = Anchor.Centre,
                 Origin = Anchor.Centre,
-                Size = new Vector2(startSize),
-                Colour = colour,
-                Alpha = 0.9f,
+                Size = new Vector2(size),
+                Colour = spark_amber,
+                Alpha = 0.8f,
             };
 
-            var particle = new Container
+            var ember = new Container
             {
                 AutoSizeAxes = Axes.Both,
                 Position = new Vector2(startX, startY),
@@ -94,13 +208,13 @@ namespace osu.Game.Graphics.UserEffects.Presets
                 Alpha = 0,
             };
 
-            parent.Add(particle);
+            parent.Add(ember);
 
-            // Animation: fade in fast, drift up while shrinking and fading out.
-            particle.FadeTo(1f, 120, Easing.OutQuad);
-            particle.MoveTo(new Vector2(startX + driftX, startY + driftY), lifetime, Easing.OutQuad);
-            particle.ScaleTo(endSize / startSize, lifetime, Easing.OutSine);
-            particle.Delay(lifetime - 200).FadeOut(200, Easing.InQuad).Expire();
+            double lifetime = 1100 + random.NextDouble() * 400;
+            ember.FadeTo(1f, 140, Easing.OutQuad);
+            ember.MoveTo(new Vector2(startX + driftX, startY + driftY), lifetime, Easing.OutSine);
+            ember.ScaleTo(0.5f, lifetime, Easing.OutQuad);
+            ember.Delay(lifetime - 220).FadeOut(220, Easing.InQuad).Expire();
         }
     }
 }

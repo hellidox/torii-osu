@@ -33,36 +33,38 @@ namespace osu.Game.Graphics.UserEffects.Presets
 
         // Slower & sparser than admin embers — the visual goal is "a couple of
         // leaves drifting around" not "swarm".
-        public override double SpawnIntervalMs => 480;
-        public override double SpawnJitterMs => 260;
-        public override int MaxAlive => 7;
+        public override double SpawnIntervalMs => 520;
+        public override double SpawnJitterMs => 280;
+        public override int MaxAlive => 5;
 
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {
-            // Spawn anywhere within / slightly outside the name's vertical band.
-            // Leaves travel sideways more than they rise, so spawning across
-            // the full width keeps motion balanced.
-            float startX = (float)(random.NextDouble() * parentSize.X);
-            float startY = parentSize.Y * (-0.2f + (float)random.NextDouble() * 1.4f);
+            // Spawn within the name's bounding box (with a small inset so leaves
+            // don't pop in flush against the edge). Vertical range is now ALL
+            // inside the box — earlier values let leaves spawn well above/below
+            // and made the aura look way too spread out.
+            float startX = (float)(0.05 + random.NextDouble() * 0.9) * parentSize.X;
+            float startY = (float)(0.1 + random.NextDouble() * 0.8) * parentSize.Y;
 
-            // Gentle horizontal drift with a slight vertical bias either up or
-            // down — leaves should feel ungoverned, not climbing on rails.
-            float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.9f);
-            float driftY = (float)((random.NextDouble() - 0.5) * parentSize.Y * 1.1f);
+            // Drift bounds tightened roughly 3x — leaves still wander gently
+            // but stay visually anchored to the username.
+            float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.25f);
+            float driftY = (float)((random.NextDouble() - 0.5) * parentSize.Y * 0.5f);
 
-            float size = 7f + (float)random.NextDouble() * 5f;
+            float size = 5.5f + (float)random.NextDouble() * 3f;
             Color4 colour = leaf_palette[random.Next(leaf_palette.Length)];
 
             // The leaf glyph itself plus a fainter, larger halo behind it to
-            // sell the glow without needing a real blur shader.
+            // sell the glow without needing a real blur shader. Halo scaled
+            // down (1.4x vs 1.8x) so the glow doesn't bleed too far past edges.
             var halo = new SpriteIcon
             {
                 Anchor = Anchor.Centre,
                 Origin = Anchor.Centre,
                 Icon = FontAwesome.Solid.Leaf,
-                Size = new Vector2(size * 1.8f),
+                Size = new Vector2(size * 1.4f),
                 Colour = colour,
-                Alpha = 0.18f,
+                Alpha = 0.16f,
             };
 
             var leaf = new SpriteIcon
@@ -99,8 +101,10 @@ namespace osu.Game.Graphics.UserEffects.Presets
             particle.MoveTo(new Vector2(startX + driftX, startY + driftY), lifetime, Easing.InOutSine);
             leaf.RotateTo(endRotation, lifetime, Easing.InOutSine);
 
-            // Gentle hover bob (3-4px Y oscillation) layered on top of the drift.
-            float bob = 2.5f + (float)random.NextDouble() * 1.5f;
+            // Gentle hover bob (1.5-2.5px Y oscillation) layered on top of the
+            // drift. Reduced from earlier 3-4px so the bob doesn't add to the
+            // visual spread that pushed leaves outside the name area.
+            float bob = 1.5f + (float)random.NextDouble();
             leaf.Loop(t => t
                 .MoveToOffset(new Vector2(0, -bob), 700, Easing.InOutSine)
                 .Then()

@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osuTK;
 
@@ -45,6 +46,14 @@ namespace osu.Game.Graphics.UserEffects
         /// bounded so a chat full of elite users doesn't tank framerate.
         /// </summary>
         public virtual int MaxAlive => 10;
+
+        /// <summary>
+        /// Optional persistent layer (added once, never expires) drawn underneath
+        /// the particle stream. Useful for pulsing halos, tint overlays, or any
+        /// always-on effect that defines the preset's "base mood". Returns null
+        /// when the preset only uses transient particles.
+        /// </summary>
+        public virtual Drawable? CreateBackground() => null;
 
         /// <summary>
         /// Spawns one particle into <paramref name="parent"/>, sized/positioned

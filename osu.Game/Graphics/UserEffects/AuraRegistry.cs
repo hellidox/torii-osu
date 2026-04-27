@@ -23,16 +23,23 @@ namespace osu.Game.Graphics.UserEffects
         // are added.
         private static readonly Dictionary<string, string> default_aura_for_group = new Dictionary<string, string>
         {
-            { "torii-admin", AdminAuraPreset.ID },
-            { "torii-dev", AdminAuraPreset.ID },
-            { "torii-goof", GoofAuraPreset.ID },
+            { "torii-admin",     AdminAuraPreset.ID },     // red embers + sparks + halo
+            { "torii-dev",       DevAuraPreset.ID },       // cyan data bits + bracket glyphs
+            { "torii-mod",       ModAuraPreset.ID },       // gold orbiting shields
+            { "torii-qat",       QatAuraPreset.ID },       // teal music notes + check accents
+            { "torii-supporter", SupporterAuraPreset.ID }, // pink rising hearts
+            { "torii-goof",      GoofAuraPreset.ID },      // pastel green chibi leaves
         };
 
         // Aura id → preset instance. Presets are stateless and shared between users.
         private static readonly Dictionary<string, AuraPreset> presets_by_id = new Dictionary<string, AuraPreset>
         {
-            { AdminAuraPreset.ID, new AdminAuraPreset() },
-            { GoofAuraPreset.ID, new GoofAuraPreset() },
+            { AdminAuraPreset.ID,     new AdminAuraPreset() },
+            { DevAuraPreset.ID,       new DevAuraPreset() },
+            { ModAuraPreset.ID,       new ModAuraPreset() },
+            { QatAuraPreset.ID,       new QatAuraPreset() },
+            { SupporterAuraPreset.ID, new SupporterAuraPreset() },
+            { GoofAuraPreset.ID,      new GoofAuraPreset() },
         };
 
         /// <summary>
