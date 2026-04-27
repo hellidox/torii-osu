@@ -43,29 +43,17 @@ namespace osu.Game.Graphics.UserEffects.Presets
         /// the particle stream; defines the aura's resting "mood" so the name
         /// reads as decorated even between particle spawns.
         /// </summary>
-        public override Drawable? CreateBackground()
+        public override Drawable? CreateBackground() => new PulsingHalo
         {
-            var halo = new Box
-            {
-                RelativeSizeAxes = Axes.Both,
-                Anchor = Anchor.Centre,
-                Origin = Anchor.Centre,
-                Colour = halo_red,
-                Alpha = 0,
-                // Slightly oversized so the glow bleeds past the text edges
-                // without needing a real blur pass.
-                Scale = new Vector2(1.25f, 1.6f),
-            };
-
-            // ~1.4s in / 1.4s out, looped. Kept subtle (max 0.18 alpha) so it
-            // doesn't compete with the particle spawns or wash out the name.
-            halo.Loop(t => t
-                .FadeTo(0.18f, 1400, Easing.InOutSine)
-                .Then()
-                .FadeTo(0.04f, 1400, Easing.InOutSine));
-
-            return halo;
-        }
+            Colour = halo_red,
+            // Slightly oversized so the glow bleeds past the text edges without
+            // needing a real blur pass.
+            Scale = new Vector2(1.25f, 1.6f),
+            // Subtle (max 0.18 alpha) so it doesn't wash out the name.
+            MaxAlpha = 0.18f,
+            MinAlpha = 0.04f,
+            DurationMs = 1400,
+        };
 
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {

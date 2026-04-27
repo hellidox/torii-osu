@@ -121,7 +121,15 @@ namespace osu.Game.Graphics.UserEffects
         /// Convenience helper: returns the original drawable when the user has
         /// no aura (so we don't pay any wrapping cost), otherwise returns a new
         /// <see cref="UserAuraContainer"/>. Anchor/origin of the original
-        /// drawable are preserved on the wrapper for layout transparency.
+        /// drawable are MOVED to the wrapper (and reset to TopLeft on the
+        /// target) so:
+        ///   - external layout sees the wrapper at the same effective position
+        ///     as the bare drawable would have been.
+        ///   - the target lays out naturally as a top-left child inside the
+        ///     auto-sized wrapper, which is the only configuration that plays
+        ///     nicely with <c>AutoSizeAxes = Axes.Both</c>. Leaving the target
+        ///     at e.g. <c>Anchor.CentreLeft</c> caused the wrapper's auto-size
+        ///     calculation to misbehave (and in some panels, throw outright).
         /// </summary>
         public static Drawable Wrap(APIUser? user, Drawable target)
         {
@@ -130,6 +138,11 @@ namespace osu.Game.Graphics.UserEffects
 
             var anchor = target.Anchor;
             var origin = target.Origin;
+
+            // Reset on the inner target so AutoSize on the wrapper sees a
+            // top-left-anchored child it can size to predictably.
+            target.Anchor = Anchor.TopLeft;
+            target.Origin = Anchor.TopLeft;
 
             return new UserAuraContainer(user, target)
             {

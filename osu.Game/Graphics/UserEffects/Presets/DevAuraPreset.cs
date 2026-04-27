@@ -35,25 +35,14 @@ namespace osu.Game.Graphics.UserEffects.Presets
 
         // Faint cyan halo, slower pulse than admin — dev = "calm focus" vs
         // admin's "barely contained heat".
-        public override Drawable? CreateBackground()
+        public override Drawable? CreateBackground() => new PulsingHalo
         {
-            var halo = new Box
-            {
-                RelativeSizeAxes = Axes.Both,
-                Anchor = Anchor.Centre,
-                Origin = Anchor.Centre,
-                Colour = bit_cyan,
-                Alpha = 0,
-                Scale = new Vector2(1.2f, 1.5f),
-            };
-
-            halo.Loop(t => t
-                .FadeTo(0.12f, 1800, Easing.InOutSine)
-                .Then()
-                .FadeTo(0.03f, 1800, Easing.InOutSine));
-
-            return halo;
-        }
+            Colour = bit_cyan,
+            Scale = new Vector2(1.2f, 1.5f),
+            MaxAlpha = 0.12f,
+            MinAlpha = 0.03f,
+            DurationMs = 1800,
+        };
 
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {
