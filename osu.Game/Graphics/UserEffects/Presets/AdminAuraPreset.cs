@@ -38,22 +38,13 @@ namespace osu.Game.Graphics.UserEffects.Presets
         public override double SpawnJitterMs => 100;
         public override int MaxAlive => 9;
 
-        /// <summary>
-        /// Soft red halo that breathes in/out continuously. Lives underneath
-        /// the particle stream; defines the aura's resting "mood" so the name
-        /// reads as decorated even between particle spawns.
-        /// </summary>
-        public override Drawable? CreateBackground() => new PulsingHalo
-        {
-            Colour = halo_red,
-            // Slightly oversized so the glow bleeds past the text edges without
-            // needing a real blur pass.
-            Scale = new Vector2(1.25f, 1.6f),
-            // Subtle (max 0.18 alpha) so it doesn't wash out the name.
-            MaxAlpha = 0.18f,
-            MinAlpha = 0.04f,
-            DurationMs = 1400,
-        };
+        // Admin aura intentionally has no persistent halo — user feedback
+        // was that the rectangular halo Box read as visually square behind
+        // the text. The rising sparks + sparkles + slow embers carry the
+        // motif on their own. (Other presets still use a halo; if the
+        // square-box look bothers there too, replace PulsingHalo with a
+        // rounded/radial implementation rather than removing it preset by
+        // preset.)
 
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {
