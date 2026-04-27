@@ -929,11 +929,12 @@ jobs:
 
   register-client-hashes:
     name: Register client hashes with Torii server
-    # Only runs on tag/release builds; silently skips if the webhook secret is not set.
-    if: |
-      (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') &&
-      needs.release.result == 'success'
-    needs: [release, version]
+    # Run after every successful build (push to master, tag push, or workflow_dispatch).
+    # Hashes change with every build of the desktop binaries, so the server needs them
+    # registered even before a tagged release exists. Silently skips if the webhook
+    # secret/URL aren't configured.
+    if: needs.build.result == 'success'
+    needs: [build, version]
     runs-on: ubuntu-latest
     steps:
     - name: Download hash artifacts
