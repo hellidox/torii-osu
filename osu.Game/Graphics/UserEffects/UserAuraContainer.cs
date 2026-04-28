@@ -108,12 +108,24 @@ namespace osu.Game.Graphics.UserEffects
             // re-front below). Only attaches when (a) preset opts in via
             // GlowColour, and (b) target is a SpriteText we can mirror —
             // otherwise there's nothing to base the text-shape blur on.
+            //
+            // BypassAutoSizeAxes = Both is critical: the wrapper has
+            // AutoSizeAxes = Both and sizes itself to the target text, but
+            // the glow is intentionally LARGER than the text (its padding
+            // gives the blur kernel room to fade out before clipping).
+            // Without bypass, the glow grows the wrapper, the wrapper's
+            // centre shifts, and since the target text is anchored TopLeft
+            // while the glow is anchored Centre, they end up rendered at
+            // different positions — the glow visibly drifts down-right of
+            // the actual letters. Bypass makes the glow purely visual and
+            // keeps the wrapper hugging the text.
             if (preset.GlowColour is Color4 glowColour && target is SpriteText spriteText)
             {
                 Add(textGlow = new TextShapeGlow(spriteText.Text, spriteText.Font, glowColour)
                 {
                     Anchor = Anchor.Centre,
                     Origin = Anchor.Centre,
+                    BypassAutoSizeAxes = Axes.Both,
                 });
             }
 
