@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
@@ -31,6 +32,16 @@ namespace osu.Game.Graphics.UserEffects.Presets
         private static readonly Color4 halo_red     = new Color4(255, 60, 50, 255);
 
         public override string AuraId => ID;
+
+        // The "torii-admin" identifier matches APIUserGroup.Identifier on the
+        // client. Note that the server-side catalog uses the bare key "admin"
+        // — they're different vocabularies on purpose; the client only ever
+        // sees the prefixed identifier on incoming user payloads.
+        public override IReadOnlyList<string> OwningGroupIdentifiers { get; } = new[] { "torii-admin" };
+
+        // Highest priority — admin should win the default-aura fallback when
+        // a user has multiple roles and no explicit pick.
+        public override int DefaultPriority => 0;
 
         // Faster cadence than goof (admin should feel "energetic") but capped
         // so a chat full of admins doesn't tank framerate.

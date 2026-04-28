@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
@@ -27,6 +28,10 @@ namespace osu.Game.Graphics.UserEffects.Presets
         private static readonly Color4 heart_deep  = new Color4(230, 100, 175, 255);
 
         public override string AuraId => ID;
+
+        public override IReadOnlyList<string> OwningGroupIdentifiers { get; } = new[] { "torii-supporter" };
+
+        public override int DefaultPriority => 40;
 
         public override double SpawnIntervalMs => 540;
         public override double SpawnJitterMs => 240;

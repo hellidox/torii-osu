@@ -2,73 +2,137 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System.Collections.Generic;
+using System.Linq;
 using osu.Game.Graphics.UserEffects.Presets;
 using osu.Game.Online.API.Requests.Responses;
 
 namespace osu.Game.Graphics.UserEffects
 {
     /// <summary>
-    /// Central lookup for which <see cref="AuraPreset"/> a given user should render.
+    /// Central registry of every <see cref="AuraPreset"/> the client knows
+    /// how to render. Responsible for:
     ///
-    /// Today: hardcoded group-based mapping (admin/dev/goof). Tomorrow: the user can
-    /// equip any preset they've unlocked, and the server sends down their choice in
-    /// a <c>equipped_aura</c> field on <c>APIUser</c>. This file is the single point
-    /// of change for that migration — every other call-site only knows about the
-    /// resolved <see cref="AuraPreset"/>.
+    ///  1. Holding the canonical list of presets — adding a new aura is
+    ///     literally one new <c>new XxxAuraPreset()</c> in the array below.
+    ///  2. Mapping a server-supplied <c>APIUser.EquippedAura</c> string to
+    ///     the matching <see cref="AuraPreset"/> instance.
+    ///  3. Falling back to a "default" aura derived from the user's groups
+    ///     when no explicit pick has been made yet (so users who joined
+    ///     before the equip UI shipped still see their elite-group aura
+    ///     out of the box).
+    ///  4. Listing the auras a user is entitled to, used by the settings
+    ///     picker for offline-friendly behaviour when the catalog endpoint
+    ///     hasn't responded yet.
+    ///
+    /// All preset metadata (display name, description) for the picker UI
+    /// comes from the SERVER catalog at <c>GET /api/v2/me/aura-catalog</c>.
+    /// Presets here only describe behaviour + ownership. This keeps the
+    /// server as the single source of truth for what auras "are".
     /// </summary>
     public static class AuraRegistry
     {
-        // Group identifier (server-side `torii_titles.identifier`) → default aura id.
-        // Mirrors `GroupBadge.elite_identifiers`. Keep in sync if new elite groups
-        // are added.
-        private static readonly Dictionary<string, string> default_aura_for_group = new Dictionary<string, string>
+        // Canonical preset list. Adding a new aura: implement a new
+        // AuraPreset subclass under Presets/ and add one new instance here.
+        // Order matters only for ties in default-priority resolution.
+        private static readonly IReadOnlyList<AuraPreset> all_presets = new AuraPreset[]
         {
-            { "torii-admin",     AdminAuraPreset.ID },     // red embers + sparks + halo
-            { "torii-dev",       DevAuraPreset.ID },       // cyan data bits + bracket glyphs
-            { "torii-mod",       ModAuraPreset.ID },       // gold orbiting shields
-            { "torii-qat",       QatAuraPreset.ID },       // teal music notes + check accents
-            { "torii-supporter", SupporterAuraPreset.ID }, // pink rising hearts
-            { "torii-goof",      GoofAuraPreset.ID },      // pastel green chibi leaves
+            new AdminAuraPreset(),
+            new DevAuraPreset(),
+            new ModAuraPreset(),
+            new QatAuraPreset(),
+            new SupporterAuraPreset(),
+            new GoofAuraPreset(),
         };
 
-        // Aura id → preset instance. Presets are stateless and shared between users.
-        private static readonly Dictionary<string, AuraPreset> presets_by_id = new Dictionary<string, AuraPreset>
+        // Indexed by AuraId for O(1) lookup. Built once at static init.
+        private static readonly Dictionary<string, AuraPreset> presets_by_id =
+            all_presets.ToDictionary(p => p.AuraId);
+
+        /// <summary>Every preset registered. Useful for tests / debug overlays.</summary>
+        public static IReadOnlyList<AuraPreset> AllPresets => all_presets;
+
+        /// <summary>Look up a preset by its stable id, or null if unknown
+        /// (e.g. server added a new aura the client doesn't know about yet).</summary>
+        public static AuraPreset? GetById(string? auraId)
         {
-            { AdminAuraPreset.ID,     new AdminAuraPreset() },
-            { DevAuraPreset.ID,       new DevAuraPreset() },
-            { ModAuraPreset.ID,       new ModAuraPreset() },
-            { QatAuraPreset.ID,       new QatAuraPreset() },
-            { SupporterAuraPreset.ID, new SupporterAuraPreset() },
-            { GoofAuraPreset.ID,      new GoofAuraPreset() },
-        };
+            if (auraId == null) return null;
+            return presets_by_id.TryGetValue(auraId, out var p) ? p : null;
+        }
 
         /// <summary>
-        /// Resolve the aura preset (if any) that should render around
-        /// <paramref name="user"/>'s name everywhere their name appears.
-        /// Returns null when the user has no qualifying group / equipped aura.
+        /// Resolve which aura preset (if any) should render around
+        /// <paramref name="user"/>'s name.
+        ///
+        /// Priority order:
+        ///   1. Explicit server-resolved <c>EquippedAura</c> — the server
+        ///      has already validated ownership and applied sentinel logic,
+        ///      so we trust it. Returns null if the value is unknown to
+        ///      this client (forward-compat with newer auras).
+        ///   2. Group-based fallback — pick the highest-priority preset
+        ///      whose owning groups intersect the user's groups. Used when
+        ///      the user has no explicit pick (server returns null), so
+        ///      every elite user gets a default aura without configuring.
+        ///   3. None.
         /// </summary>
         public static AuraPreset? ResolveForUser(APIUser? user)
         {
-            if (user?.Groups == null || user.Groups.Length == 0)
+            if (user == null)
                 return null;
 
-            // FUTURE: when `user.EquippedAura` lands, prefer that here:
-            //   if (!string.IsNullOrEmpty(user.EquippedAura) &&
-            //       presets_by_id.TryGetValue(user.EquippedAura, out var equipped))
-            //       return equipped;
-            // (with a server-side check that the user actually owns the equipped aura)
+            // Path 1: server already resolved this user's equipped aura.
+            if (!string.IsNullOrEmpty(user.EquippedAura))
+                return GetById(user.EquippedAura);
 
-            foreach (var group in user.Groups)
+            // Path 2: no explicit pick — fall back to the user's groups.
+            // Only relevant during the rollout window where some clients
+            // fetched a user payload before this field shipped, or for
+            // users never seen by an aware client. Otherwise the server
+            // resolves this server-side and Path 1 always hits.
+            return resolveDefaultForGroups(user);
+        }
+
+        /// <summary>
+        /// All auras the given user is entitled to equip, ordered by
+        /// <see cref="AuraPreset.DefaultPriority"/> ascending. Used by the
+        /// settings picker as a quick local view; the authoritative source
+        /// for the picker is still the server catalog endpoint.
+        /// </summary>
+        public static IEnumerable<AuraPreset> GetEntitledAuras(APIUser? user)
+        {
+            if (user?.Groups == null || user.Groups.Length == 0)
+                yield break;
+
+            var groupIds = new HashSet<string>(user.Groups
+                .Where(g => g.Identifier != null)
+                .Select(g => g.Identifier!));
+
+            foreach (var preset in all_presets.OrderBy(p => p.DefaultPriority))
             {
-                if (group.Identifier != null
-                    && default_aura_for_group.TryGetValue(group.Identifier, out string? auraId)
-                    && presets_by_id.TryGetValue(auraId, out var preset))
-                {
-                    return preset;
-                }
+                if (preset.OwningGroupIdentifiers.Any(id => groupIds.Contains(id)))
+                    yield return preset;
             }
+        }
 
-            return null;
+        // Returns the highest-priority preset whose owning groups overlap
+        // the user's groups, or null when nothing matches.
+        private static AuraPreset? resolveDefaultForGroups(APIUser user)
+        {
+            if (user.Groups == null || user.Groups.Length == 0)
+                return null;
+
+            var groupIds = new HashSet<string>(user.Groups
+                .Where(g => g.Identifier != null)
+                .Select(g => g.Identifier!));
+
+            AuraPreset? best = null;
+            foreach (var preset in all_presets)
+            {
+                if (!preset.OwningGroupIdentifiers.Any(id => groupIds.Contains(id)))
+                    continue;
+                if (best == null || preset.DefaultPriority < best.DefaultPriority)
+                    best = preset;
+            }
+            return best;
         }
     }
 }

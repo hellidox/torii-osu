@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
@@ -27,6 +28,10 @@ namespace osu.Game.Graphics.UserEffects.Presets
         private static readonly Color4 halo_gold    = new Color4(255, 195, 90, 255);
 
         public override string AuraId => ID;
+
+        public override IReadOnlyList<string> OwningGroupIdentifiers { get; } = new[] { "torii-mod" };
+
+        public override int DefaultPriority => 20;
 
         // Slower spawn rate — moderation is about presence, not noise.
         public override double SpawnIntervalMs => 600;

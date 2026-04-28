@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
@@ -28,6 +29,10 @@ namespace osu.Game.Graphics.UserEffects.Presets
         private static readonly Color4 halo_teal  = new Color4(90, 220, 190, 255);
 
         public override string AuraId => ID;
+
+        public override IReadOnlyList<string> OwningGroupIdentifiers { get; } = new[] { "torii-qat" };
+
+        public override int DefaultPriority => 30;
 
         public override double SpawnIntervalMs => 460;
         public override double SpawnJitterMs => 200;

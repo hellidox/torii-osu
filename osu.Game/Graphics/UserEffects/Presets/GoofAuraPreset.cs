@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
@@ -30,6 +31,10 @@ namespace osu.Game.Graphics.UserEffects.Presets
         };
 
         public override string AuraId => ID;
+
+        public override IReadOnlyList<string> OwningGroupIdentifiers { get; } = new[] { "torii-goof" };
+
+        public override int DefaultPriority => 50;
 
         // Slower & sparser than admin embers — the visual goal is "a couple of
         // leaves drifting around" not "swarm".

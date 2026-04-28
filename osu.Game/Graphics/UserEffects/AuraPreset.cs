@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osuTK;
@@ -11,40 +12,60 @@ namespace osu.Game.Graphics.UserEffects
     /// <summary>
     /// A particle-aura definition that can be rendered around a username.
     ///
-    /// A preset declares its tuning (spawn rate, particle cap) and is responsible
-    /// for emitting its own particle drawables into a host container — this lets
-    /// each preset have its own visual identity (admin embers vs goof leaves vs
-    /// future cosmetics) without needing a one-size-fits-all particle type.
+    /// Presets are SELF-DESCRIBING:
+    ///  - <see cref="AuraId"/>     — stable string id, matches the server-side
+    ///    <c>torii_auras.TORII_AURAS</c> key and the value stored in
+    ///    <c>APIUser.equipped_aura</c>.
+    ///  - <see cref="OwningGroupIdentifiers"/> — which API group identifiers
+    ///    (e.g. "torii-admin") grant a user access to this aura. Used by the
+    ///    client-side fallback resolver when a user has no explicit equipped
+    ///    pick yet, and as a sanity check that the local preset matches what
+    ///    the server says it should.
+    ///  - <see cref="DefaultPriority"/> — used to break ties when a user owns
+    ///    multiple eligible groups and has not picked explicitly. Lower wins.
+    ///    Mirrors the server's <c>default_priority</c> on the same aura id.
     ///
-    /// Presets are looked up by a stable string id (<see cref="AuraId"/>) so that
-    /// in the future a user-equipable cosmetic field on <c>APIUser</c> can drive
-    /// preset selection directly. For now, presets are mapped to user groups via
-    /// <see cref="AuraRegistry.ResolveForUser"/>.
+    /// Adding a new aura: create one <see cref="AuraPreset"/> subclass and
+    /// register it in <see cref="AuraRegistry.AllPresets"/>. No other client
+    /// file needs to change. Display name + description are intentionally NOT
+    /// stored here — those come from the server catalog endpoint so they
+    /// stay localised and authoritative.
     /// </summary>
     public abstract class AuraPreset
     {
         /// <summary>
-        /// Stable identifier for this aura (e.g. "admin-embers", "goof-leaves").
-        /// Used as the key in <see cref="AuraRegistry"/> and — eventually — as the
-        /// value stored in <c>APIUser.EquippedAura</c> when cosmetic-equipping ships.
+        /// Stable identifier for this aura (e.g. "admin-embers"). Used as the
+        /// dictionary key in <see cref="AuraRegistry"/>, the value of
+        /// <c>APIUser.EquippedAura</c>, and the catalog id from the server.
         /// </summary>
         public abstract string AuraId { get; }
 
         /// <summary>
-        /// Average milliseconds between particle spawns. Combined with
-        /// <see cref="SpawnJitterMs"/> for natural-looking emission.
+        /// API group identifiers (the same strings carried by
+        /// <c>APIUserGroup.Identifier</c>, e.g. "torii-admin", "torii-goof")
+        /// that grant a user access to this aura. A user is eligible iff at
+        /// least one of their groups appears here.
         /// </summary>
+        public abstract IReadOnlyList<string> OwningGroupIdentifiers { get; }
+
+        /// <summary>
+        /// Tie-breaker for the client-side default-aura fallback. Used only
+        /// when <c>APIUser.EquippedAura</c> is null AND the user owns more
+        /// than one eligible group — the preset with the lowest priority
+        /// wins. Keep aligned with the server's <c>default_priority</c>.
+        /// </summary>
+        public virtual int DefaultPriority => 100;
+
+        // ---- Particle behaviour tuning. Defaults are sane for a "subtle
+        // ambient effect"; presets override to taste. ----
+
+        /// <summary>Average milliseconds between particle spawns.</summary>
         public virtual double SpawnIntervalMs => 280;
 
-        /// <summary>
-        /// Random extra delay (0..N) added to each spawn.
-        /// </summary>
+        /// <summary>Random extra delay (0..N) added to each spawn.</summary>
         public virtual double SpawnJitterMs => 180;
 
-        /// <summary>
-        /// Hard cap on simultaneously-alive particles. Keeps the worst case
-        /// bounded so a chat full of elite users doesn't tank framerate.
-        /// </summary>
+        /// <summary>Hard cap on simultaneously-alive particles. Bounds worst-case GPU work.</summary>
         public virtual int MaxAlive => 10;
 
         /// <summary>
