@@ -87,7 +87,11 @@ namespace osu.Game.Tests.Visual.UserInterface
             // otherwise a "rebuild" leaves orphan particle children behind.
             Clear();
 
-            AddInternal(new Box
+            // Use Add (the public test-scene API) — AddInternal is
+            // explicitly forbidden in TestScene and throws "Modifying
+            // InternalChildren will cause critical failure. Use Add
+            // instead." at runtime.
+            Add(new Box
             {
                 // Solid near-black background. Auras use additive blending,
                 // so on a light background the colours wash out and on a
@@ -104,7 +108,7 @@ namespace osu.Game.Tests.Visual.UserInterface
                 Spacing = new Vector2(16),
                 Direction = FillDirection.Full,
             };
-            AddInternal(grid);
+            Add(grid);
 
             foreach (var preset in AuraRegistry.AllPresets)
                 grid.Add(new AuraTile(preset, sampleUsername));
