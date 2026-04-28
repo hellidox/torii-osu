@@ -50,17 +50,26 @@ namespace osu.Game.Graphics.UserEffects.Presets
 
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {
-            // Spawn within the name's bounding box (with a small inset so leaves
-            // don't pop in flush against the edge). Vertical range is now ALL
-            // inside the box — earlier values let leaves spawn well above/below
-            // and made the aura look way too spread out.
-            float startX = (float)(0.05 + random.NextDouble() * 0.9) * parentSize.X;
-            float startY = (float)(0.1 + random.NextDouble() * 0.8) * parentSize.Y;
+            // Spawn region intentionally extends slightly OUTSIDE the username
+            // bounding box so leaves appear to hover around the label rather
+            // than stuck on top of the letters. The previous tuning kept
+            // spawn fully inside (5%..95% × 10%..90%) which made the leaves
+            // bunch on the text and read as "leaves stuck in the name", not
+            // "leaves drifting around it". Going to ±15% past each edge gives
+            // the goof aura its gentle "halo of leaves" feel without becoming
+            // chaotic. Particle count stays MaxAlive=5 so the wider envelope
+            // doesn't suddenly look crowded.
+            float startX = (float)(-0.15 + random.NextDouble() * 1.30) * parentSize.X;
+            float startY = (float)(-0.20 + random.NextDouble() * 1.40) * parentSize.Y;
 
-            // Drift bounds tightened roughly 3x — leaves still wander gently
-            // but stay visually anchored to the username.
-            float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.25f);
-            float driftY = (float)((random.NextDouble() - 0.5) * parentSize.Y * 0.5f);
+            // Drift roughly doubled vs the prior tuning — leaves now actually
+            // travel a noticeable distance rather than barely wandering. Kept
+            // symmetric in X so leaves on either side of the name drift toward
+            // OR away from it with equal probability; in Y biased upward
+            // slightly (centre at -0.05*H) so the overall feel is "lifting"
+            // rather than equally falling.
+            float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.5f);
+            float driftY = (float)((random.NextDouble() - 0.55) * parentSize.Y * 0.7f);
 
             float size = 5.5f + (float)random.NextDouble() * 3f;
             Color4 colour = leaf_palette[random.Next(leaf_palette.Length)];

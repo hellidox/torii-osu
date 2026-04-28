@@ -139,9 +139,18 @@ namespace osu.Game.Graphics.UserEffects.Presets
 
             float size = 4.5f + (float)random.NextDouble() * 2.5f;
 
+            // Sparkle is added directly to the emitter (no wrapper Container),
+            // so its Position is interpreted relative to its Anchor. We want
+            // (startX, startY) to be in parent.TopLeft coords (which is what
+            // the formula above produces — startX ∈ [0..W], startY ∈ [0..H]).
+            // Anchor defaults to TopLeft when omitted; explicitly setting it
+            // to Centre here was a long-standing bug that biased every spark
+            // / sparkle / dev bit to the right of the username, because
+            // Centre + Position(W,H) lands at (1.5W, 1.5H). Origin stays
+            // Centre so the rotate/scale animations pivot around the star's
+            // own midpoint.
             var sparkle = new SpriteIcon
             {
-                Anchor = Anchor.Centre,
                 Origin = Anchor.Centre,
                 Icon = FontAwesome.Solid.Star,
                 Size = new Vector2(size),
