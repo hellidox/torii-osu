@@ -93,7 +93,10 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.08f);
             float driftY = -parentSize.Y * (0.6f + (float)random.NextDouble() * 0.3f);
 
-            float size = 2.2f + (float)random.NextDouble() * 1.5f;
+            // Scale by parent height so chat-density usernames don't get the
+            // same ~3.5px bits a 32pt profile header gets.
+            float scale = ParticleScale(parentSize);
+            float size = (2.2f + (float)random.NextDouble() * 1.5f) * scale;
 
             Color4 colour = random.NextDouble() < 0.5
                 ? bit_cyan
@@ -123,7 +126,7 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float startY = parentSize.Y * (0.55f + (float)random.NextDouble() * 0.35f);
 
             float driftY = -parentSize.Y * (0.7f + (float)random.NextDouble() * 0.2f);
-            float size = 4.5f + (float)random.NextDouble() * 2f;
+            float size = (4.5f + (float)random.NextDouble() * 2f) * ParticleScale(parentSize);
 
             // Pick < or > based on a coin flip — gives the impression of
             // syntax tokens rising rather than identical glyphs.
@@ -157,7 +160,7 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.06f);
             float driftY = -parentSize.Y * (0.65f + (float)random.NextDouble() * 0.3f);
 
-            float size = 8f + (float)random.NextDouble() * 2.5f;
+            float size = (8f + (float)random.NextDouble() * 2.5f) * ParticleScale(parentSize);
 
             string glyph = random.NextDouble() < 0.5 ? "0" : "1";
             Color4 colour = random.NextDouble() < 0.5 ? bit_cyan : bit_pale;
@@ -193,7 +196,7 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float startY = parentSize.Y * (0.5f + (float)random.NextDouble() * 0.4f);
 
             float driftY = -parentSize.Y * (0.75f + (float)random.NextDouble() * 0.25f);
-            float size = 4f + (float)random.NextDouble() * 2f;
+            float size = (4f + (float)random.NextDouble() * 2f) * ParticleScale(parentSize);
 
             // Pool of operator-y FontAwesome glyphs that read as "code" at small size.
             IconUsage[] operators =

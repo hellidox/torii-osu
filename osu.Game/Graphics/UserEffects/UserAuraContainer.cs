@@ -45,15 +45,38 @@ namespace osu.Game.Graphics.UserEffects
         /// Wrap <paramref name="target"/> with an aura matching <paramref name="user"/>'s groups.
         /// Use the static <see cref="Wrap"/> helper from call-sites for the cleanest one-liner.
         /// </summary>
-        public UserAuraContainer(APIUser? user, Drawable target)
+        /// <param name="user">The user whose aura (if any) should render behind the target.</param>
+        /// <param name="target">The drawable (usually a username SpriteText) to decorate.</param>
+        /// <param name="relativeSizeAxes">
+        /// Axes the wrapper should size relative to its own parent. Defaults
+        /// to <see cref="Axes.None"/> (wrapper auto-sizes both axes to the
+        /// target's natural size — correct for free-flowing usernames). Pass
+        /// <see cref="Axes.X"/> when wrapping a <c>TruncatingSpriteText</c>
+        /// that needs a fixed parent width to know where to truncate; the
+        /// wrapper then matches the target's RelativeSizeAxes so the
+        /// truncation column stays correct.
+        /// </param>
+        public UserAuraContainer(APIUser? user, Drawable target, Axes relativeSizeAxes = Axes.None)
         {
             this.user = user;
             this.target = target;
 
-            // Auto-size to whatever the wrapped username is. The emitter sits
-            // underneath it filling the same box, so particles spawn relative
-            // to the actual rendered name dimensions.
-            AutoSizeAxes = Axes.Both;
+            // Size policy:
+            //   - Wrapper takes the target's relative-size axes (so a
+            //     RelativeSizeAxes=X target keeps its width relative to the
+            //     real parent transitively).
+            //   - Auto-size on whichever axes are NOT relative-sized so the
+            //     emitter still has a meaningful (non-zero, non-100%) bounds
+            //     to spawn particles within on those axes.
+            if (relativeSizeAxes != Axes.None)
+            {
+                RelativeSizeAxes = relativeSizeAxes;
+                AutoSizeAxes = Axes.Both & ~relativeSizeAxes;
+            }
+            else
+            {
+                AutoSizeAxes = Axes.Both;
+            }
         }
 
         [BackgroundDependencyLoader]
@@ -178,13 +201,22 @@ namespace osu.Game.Graphics.UserEffects
 
             var anchor = target.Anchor;
             var origin = target.Origin;
+            // Pull the target's RelativeSizeAxes onto the wrapper so we
+            // preserve any X-relative / Y-relative sizing the layout above
+            // expected. Without this, wrapping a TruncatingSpriteText (which
+            // is RelativeSizeAxes=X to know how wide to truncate) would
+            // collapse to zero width because the wrapper auto-sizes to a
+            // child that's trying to be 100% of the wrapper.
+            var relativeSizeAxes = target.RelativeSizeAxes;
 
-            // Reset on the inner target so AutoSize on the wrapper sees a
-            // top-left-anchored child it can size to predictably.
+            // Reset anchor/origin on the inner target so AutoSize on the
+            // wrapper sees a top-left-anchored child it can size to
+            // predictably. RelativeSizeAxes stays on the target so it can
+            // continue to fill the wrapper transitively.
             target.Anchor = Anchor.TopLeft;
             target.Origin = Anchor.TopLeft;
 
-            return new UserAuraContainer(user, target)
+            return new UserAuraContainer(user, target, relativeSizeAxes)
             {
                 Anchor = anchor,
                 Origin = origin,

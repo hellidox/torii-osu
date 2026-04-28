@@ -71,7 +71,7 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.5f);
             float driftY = (float)((random.NextDouble() - 0.55) * parentSize.Y * 0.7f);
 
-            float size = 5.5f + (float)random.NextDouble() * 3f;
+            float size = (5.5f + (float)random.NextDouble() * 3f) * ParticleScale(parentSize);
             Color4 colour = leaf_palette[random.Next(leaf_palette.Length)];
 
             // The leaf glyph itself plus a fainter, larger halo behind it to

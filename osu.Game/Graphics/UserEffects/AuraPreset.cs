@@ -108,5 +108,22 @@ namespace osu.Game.Graphics.UserEffects
         /// expiring itself.
         /// </summary>
         public abstract void EmitParticle(Container parent, Vector2 parentSize, Random random);
+
+        /// <summary>
+        /// Per-context particle scale. Maps the parent username's height to a
+        /// multiplier presets apply to fixed-pixel sizes (sparks, glyphs,
+        /// hearts, etc) so the aura looks proportionate across both tiny
+        /// chat rows (≈13px) and large profile headers (≈40px+).
+        /// </summary>
+        /// <remarks>
+        /// Reference height of 30px corresponds to the typical leaderboard /
+        /// user-panel username size. Below that we scale down (chat rows
+        /// otherwise get visually huge sparks dominating the row); above we
+        /// scale up modestly (profile header sparks need to read at distance
+        /// without looking puny). Clamp keeps both extremes sane — never
+        /// invisible, never overwhelming.
+        /// </remarks>
+        protected static float ParticleScale(Vector2 parentSize) =>
+            Math.Clamp(parentSize.Y / 30f, 0.45f, 1.5f);
     }
 }

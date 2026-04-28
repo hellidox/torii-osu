@@ -63,7 +63,7 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.3f);
             float driftY = -parentSize.Y * (0.4f + (float)random.NextDouble() * 0.4f);
 
-            float size = 5.5f + (float)random.NextDouble() * 2.5f;
+            float size = (5.5f + (float)random.NextDouble() * 2.5f) * ParticleScale(parentSize);
             Color4 colour = random.NextDouble() < 0.5 ? note_teal : note_green;
 
             var halo = new SpriteIcon
@@ -109,7 +109,7 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float startX = (float)(0.15 + random.NextDouble() * 0.7) * parentSize.X;
             float startY = (float)(0.2 + random.NextDouble() * 0.6) * parentSize.Y;
 
-            float size = 5f + (float)random.NextDouble() * 2f;
+            float size = (5f + (float)random.NextDouble() * 2f) * ParticleScale(parentSize);
 
             var check = new SpriteIcon
             {

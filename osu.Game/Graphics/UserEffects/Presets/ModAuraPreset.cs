@@ -56,7 +56,10 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.3f);
             float driftY = (float)((random.NextDouble() - 0.5) * parentSize.Y * 0.3f);
 
-            float size = 6f + (float)random.NextDouble() * 2.5f;
+            // Scale by parent height — chat usernames get smaller shields,
+            // profile headers get larger ones, so the aura reads
+            // proportionate in either context.
+            float size = (6f + (float)random.NextDouble() * 2.5f) * ParticleScale(parentSize);
             Color4 colour = random.NextDouble() < 0.5 ? shield_gold : shield_amber;
 
             var halo = new SpriteIcon

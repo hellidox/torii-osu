@@ -29,7 +29,17 @@ namespace osu.Game.Graphics.UserEffects.Presets
         private static readonly Color4 spark_bright = new Color4(255, 200, 140, 255);
         private static readonly Color4 spark_red    = new Color4(255, 80, 60, 255);
         private static readonly Color4 spark_amber  = new Color4(255, 140, 80, 255);
-        private static readonly Color4 halo_red     = new Color4(255, 60, 50, 255);
+
+        // Glow tone is intentionally MUCH softer than the spark colours —
+        // earlier (255,60,50) was the same straight cherry red as the spark
+        // particles, which read as a harsh saturated wash behind the name
+        // (especially in chat where the username sits on a dark grey row at
+        // 13pt; the glow drowned out everything around it). The web profile
+        // paints the admin name in a coral-leaning lighter red and that's
+        // the look the user is asking us to match. (255,140,110) lands in
+        // that coral family while still being recognisably "admin red"
+        // when it pulses behind the letters.
+        private static readonly Color4 halo_red     = new Color4(255, 140, 110, 255);
 
         public override string AuraId => ID;
 
@@ -85,7 +95,11 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.12f);
             float driftY = -parentSize.Y * (0.55f + (float)random.NextDouble() * 0.35f);
 
-            float length = 5f + (float)random.NextDouble() * 4f;
+            // Scale spark size with parent height so chat rows (~13px) get
+            // proportionate tiny sparks instead of full-size 5–9px lines that
+            // were visually dwarfing the username.
+            float scale = ParticleScale(parentSize);
+            float length = (5f + (float)random.NextDouble() * 4f) * scale;
 
             Color4 colour = random.NextDouble() < 0.5
                 ? spark_red
@@ -137,7 +151,7 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float startX = (float)(0.1 + random.NextDouble() * 0.8) * parentSize.X;
             float startY = (float)(0.2 + random.NextDouble() * 0.6) * parentSize.Y;
 
-            float size = 4.5f + (float)random.NextDouble() * 2.5f;
+            float size = (4.5f + (float)random.NextDouble() * 2.5f) * ParticleScale(parentSize);
 
             // Sparkle is added directly to the emitter (no wrapper Container),
             // so its Position is interpreted relative to its Anchor. We want
@@ -179,7 +193,7 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float driftY = -parentSize.Y * (1.0f + (float)random.NextDouble() * 0.3f);
             float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.18f);
 
-            float size = 4f + (float)random.NextDouble() * 2.5f;
+            float size = (4f + (float)random.NextDouble() * 2.5f) * ParticleScale(parentSize);
 
             var halo = new Circle
             {

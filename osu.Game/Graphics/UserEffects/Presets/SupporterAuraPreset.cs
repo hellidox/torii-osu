@@ -63,7 +63,7 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.18f);
             float driftY = -parentSize.Y * (0.7f + (float)random.NextDouble() * 0.3f);
 
-            float size = 5f + (float)random.NextDouble() * 2.5f;
+            float size = (5f + (float)random.NextDouble() * 2.5f) * ParticleScale(parentSize);
             Color4 colour = PINK_PALETTE[random.Next(PINK_PALETTE.Length)];
 
             var halo = new SpriteIcon
