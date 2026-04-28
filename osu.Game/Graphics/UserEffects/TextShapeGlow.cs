@@ -40,11 +40,14 @@ namespace osu.Game.Graphics.UserEffects
     /// </summary>
     public partial class TextShapeGlow : BufferedContainer
     {
+        // With the tighter blur the glow is concentrated, so a higher peak
+        // alpha than before still reads as "soft halo" rather than "solid
+        // shape" behind the text.
         /// <summary>Alpha at the peak of the breath cycle.</summary>
-        public float MaxAlpha { get; init; } = 0.55f;
+        public float MaxAlpha { get; init; } = 0.85f;
 
         /// <summary>Alpha at the trough of the breath cycle.</summary>
-        public float MinAlpha { get; init; } = 0.20f;
+        public float MinAlpha { get; init; } = 0.40f;
 
         /// <summary>Duration of one fade direction (full cycle is 2x this).</summary>
         public double DurationMs { get; init; } = 1500;
@@ -57,15 +60,16 @@ namespace osu.Game.Graphics.UserEffects
             // before hitting the buffer edge.
             AutoSizeAxes = Axes.Both;
 
-            // Generous padding for the blur falloff. ~3x the larger BlurSigma
-            // axis so the gaussian tail is fully resident inside the buffer
-            // and doesn't get clipped to a hard edge.
-            Padding = new MarginPadding(24);
-
-            // Asymmetric blur — a touch wider than tall so the glow reads as a
-            // soft horizontal smear that follows reading direction, rather
-            // than a perfect circular pillow.
-            BlurSigma = new Vector2(8f, 6f);
+            // Tighter halo than the v1 (8/6 sigma, 24px padding). User
+            // feedback was that the wider blur read as a "stretched blob"
+            // rather than an outer-glow following the letter shapes — like
+            // Photoshop's outer-glow effect, the blur radius needs to be
+            // small enough that the glow stays close to the glyph outlines.
+            // Sigma 3.5/3 is roughly 10-12px effective radius, padded to 12
+            // to keep the gaussian tail inside the buffer with a small
+            // safety margin.
+            Padding = new MarginPadding(12);
+            BlurSigma = new Vector2(3.5f, 3f);
 
             // Slightly desaturated/dim base alpha. The pulse animates on top of
             // this; we don't want full opacity ever.
