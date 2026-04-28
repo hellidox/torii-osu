@@ -12,19 +12,36 @@ using osuTK.Graphics;
 namespace osu.Game.Graphics.UserEffects.Presets
 {
     /// <summary>
-    /// Base class for the supporter / loyalty-tier hearts auras.
+    /// Supporter aura: small pink hearts rising slowly with a gentle pulse.
+    /// Mirrors the established osu!supporter heart symbol so it's instantly
+    /// recognisable without explanation. Subdued cadence — a "thank you"
+    /// feel rather than the loud attention-grabbing of admin/dev/qat.
     ///
-    /// All four variants (pink supporter, bronze, silver, gold) share the
-    /// same particle motion — small FaHeart drifting up with a gentle
-    /// heartbeat pulse — and only differ in their colour palette,
-    /// AuraId, owning groups, and DefaultPriority. Concrete subclasses
-    /// supply just those four pieces; the emit logic stays here so any
-    /// tuning we do (cadence, drift bounds, halo scale) lands once for
-    /// the whole tier family.
+    /// Granted ONLY while the user is currently supporting (server-side
+    /// `torii-supporter` group is added iff `is_currently_supporting`).
+    /// Lapsed donors lose access to this aura on their next API hit; the
+    /// permanent recognition for them is the `torii-donator` badge, which
+    /// has no aura attached.
     /// </summary>
-    public abstract class SupporterHeartsAuraBase : AuraPreset
+    public class SupporterAuraPreset : AuraPreset
     {
-        protected abstract Color4[] Palette { get; }
+        public const string ID = "supporter-aura";
+
+        // Pinks tuned around the existing osu! supporter pink so the aura
+        // reads as "this person supports the project" without needing a
+        // label.
+        private static readonly Color4[] PINK_PALETTE =
+        {
+            new Color4(255, 130, 200, 255), // pink
+            new Color4(255, 165, 215, 255), // rose
+            new Color4(230, 100, 175, 255), // deep pink
+        };
+
+        public override string AuraId => ID;
+
+        public override IReadOnlyList<string> OwningGroupIdentifiers { get; } = new[] { "torii-supporter" };
+
+        public override int DefaultPriority => 40;
 
         public override double SpawnIntervalMs => 540;
         public override double SpawnJitterMs => 240;
@@ -36,12 +53,12 @@ namespace osu.Game.Graphics.UserEffects.Presets
             float startY = parentSize.Y * (0.55f + (float)random.NextDouble() * 0.4f);
 
             // Hearts rise mostly straight up with a tiny side-to-side wobble.
-            // No drama — supporter hearts are a quiet thank-you, not a flex.
+            // No drama — the supporter aura is a quiet thank-you, not a flex.
             float driftX = (float)((random.NextDouble() - 0.5) * parentSize.X * 0.18f);
             float driftY = -parentSize.Y * (0.7f + (float)random.NextDouble() * 0.3f);
 
             float size = 5f + (float)random.NextDouble() * 2.5f;
-            Color4 colour = Palette[random.Next(Palette.Length)];
+            Color4 colour = PINK_PALETTE[random.Next(PINK_PALETTE.Length)];
 
             var halo = new SpriteIcon
             {
@@ -82,40 +99,5 @@ namespace osu.Game.Graphics.UserEffects.Presets
 
             particle.Delay(lifetime - 340).FadeOut(340, Easing.OutQuad).Expire();
         }
-    }
-
-    /// <summary>
-    /// Default supporter aura — pink hearts. Granted to anyone who has
-    /// supported for 1+ months (the lowest tier). Mirrors the osu!supporter
-    /// heart icon so it reads instantly.
-    /// </summary>
-    public class SupporterAuraPreset : SupporterHeartsAuraBase
-    {
-        public const string ID = "supporter-hearts";
-
-        // Pinks tuned around the existing osu! supporter pink so the aura
-        // reads as "this person supports the project" without needing a label.
-        private static readonly Color4[] PINK_PALETTE =
-        {
-            new Color4(255, 130, 200, 255), // pink
-            new Color4(255, 165, 215, 255), // rose
-            new Color4(230, 100, 175, 255), // deep pink
-        };
-
-        protected override Color4[] Palette => PINK_PALETTE;
-
-        public override string AuraId => ID;
-
-        // All four supporter tier groups grant this aura — gold supporters
-        // can pick the basic pink hearts if they want, etc.
-        public override IReadOnlyList<string> OwningGroupIdentifiers { get; } = new[]
-        {
-            "torii-supporter",
-            "torii-supporter-bronze",
-            "torii-supporter-silver",
-            "torii-supporter-gold",
-        };
-
-        public override int DefaultPriority => 40;
     }
 }

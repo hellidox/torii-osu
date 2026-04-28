@@ -40,13 +40,11 @@ namespace osu.Game.Graphics.UserEffects
             new DevAuraPreset(),
             new ModAuraPreset(),
             new QatAuraPreset(),
-            // Supporter tier family — same heart motion, escalating palette
-            // (pink → bronze → silver → gold). Each tier owns its own
-            // aura plus the lower tiers, so a gold supporter can equip any.
+            // Single supporter aura (pink hearts) — granted only while the
+            // user is currently in the active supporter window. Past donors
+            // get the permanent "torii-donator" badge instead, which has
+            // no aura attached.
             new SupporterAuraPreset(),
-            new SupporterBronzeAuraPreset(),
-            new SupporterSilverAuraPreset(),
-            new SupporterGoldAuraPreset(),
             new GoofAuraPreset(),
         };
 
