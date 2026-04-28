@@ -40,7 +40,13 @@ namespace osu.Game.Graphics.UserEffects
             new DevAuraPreset(),
             new ModAuraPreset(),
             new QatAuraPreset(),
+            // Supporter tier family — same heart motion, escalating palette
+            // (pink → bronze → silver → gold). Each tier owns its own
+            // aura plus the lower tiers, so a gold supporter can equip any.
             new SupporterAuraPreset(),
+            new SupporterBronzeAuraPreset(),
+            new SupporterSilverAuraPreset(),
+            new SupporterGoldAuraPreset(),
             new GoofAuraPreset(),
         };
 
