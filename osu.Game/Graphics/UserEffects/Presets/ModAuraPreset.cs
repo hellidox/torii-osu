@@ -38,14 +38,11 @@ namespace osu.Game.Graphics.UserEffects.Presets
         public override double SpawnJitterMs => 250;
         public override int MaxAlive => 5;
 
-        public override Drawable? CreateBackground() => new PulsingHalo
-        {
-            Colour = halo_gold,
-            Scale = new Vector2(1.2f, 1.5f),
-            MaxAlpha = 0.12f,
-            MinAlpha = 0.03f,
-            DurationMs = 1700,
-        };
+        // Soft gold glow that hugs the username letters — replaces the old
+        // rectangular PulsingHalo Box. UserAuraContainer mirrors the wrapped
+        // SpriteText into a blurred buffer, so this colour drives the glow
+        // around the actual letter outlines.
+        public override Color4? GlowColour => halo_gold;
 
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {

@@ -5,8 +5,10 @@ using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Sprites;
 using osu.Game.Configuration;
 using osu.Game.Online.API.Requests.Responses;
+using osuTK.Graphics;
 
 namespace osu.Game.Graphics.UserEffects
 {
@@ -30,6 +32,11 @@ namespace osu.Game.Graphics.UserEffects
         private readonly Drawable target;
 
         private ParticleAuraEmitter? emitter;
+
+        // Optional pulsing text-shape glow rendered UNDER the emitter and the
+        // target. Only created when the resolved preset opts in via
+        // AuraPreset.GlowColour AND the target is a SpriteText we can mirror.
+        private TextShapeGlow? textGlow;
 
         private Bindable<bool> auraEnabled = null!;
         private bool loaded;
@@ -79,15 +86,36 @@ namespace osu.Game.Graphics.UserEffects
 
         private void rebuildEmitter()
         {
+            // Tear down both layers so SetUser swaps don't leak old visuals.
             if (emitter != null)
             {
                 Remove(emitter, disposeImmediately: true);
                 emitter = null;
             }
 
+            if (textGlow != null)
+            {
+                Remove(textGlow, disposeImmediately: true);
+                textGlow = null;
+            }
+
             var preset = AuraRegistry.ResolveForUser(user);
             if (preset == null)
                 return;
+
+            // Glow is added FIRST so it sits at the bottom of the z-stack,
+            // beneath the emitter (and beneath the username target which we
+            // re-front below). Only attaches when (a) preset opts in via
+            // GlowColour, and (b) target is a SpriteText we can mirror —
+            // otherwise there's nothing to base the text-shape blur on.
+            if (preset.GlowColour is Color4 glowColour && target is SpriteText spriteText)
+            {
+                Add(textGlow = new TextShapeGlow(spriteText.Text, spriteText.Font, glowColour)
+                {
+                    Anchor = Anchor.Centre,
+                    Origin = Anchor.Centre,
+                });
+            }
 
             Add(emitter = new ParticleAuraEmitter(preset)
             {

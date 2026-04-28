@@ -49,13 +49,13 @@ namespace osu.Game.Graphics.UserEffects.Presets
         public override double SpawnJitterMs => 100;
         public override int MaxAlive => 9;
 
-        // Admin aura intentionally has no persistent halo — user feedback
-        // was that the rectangular halo Box read as visually square behind
-        // the text. The rising sparks + sparkles + slow embers carry the
-        // motif on their own. (Other presets still use a halo; if the
-        // square-box look bothers there too, replace PulsingHalo with a
-        // rounded/radial implementation rather than removing it preset by
-        // preset.)
+        // Soft red glow hugging the username letters. Re-introduced after
+        // the rectangular PulsingHalo was scrapped — TextShapeGlow follows
+        // letter outlines via blur instead of a Box bounding box, so the
+        // "visually square" complaint that killed the previous halo no
+        // longer applies. Lower-saturation halo_red so the glow reads as
+        // ambient warmth rather than competing with the bright spark heads.
+        public override Color4? GlowColour => halo_red;
 
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {

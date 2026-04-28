@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osuTK;
+using osuTK.Graphics;
 
 namespace osu.Game.Graphics.UserEffects
 {
@@ -74,7 +75,31 @@ namespace osu.Game.Graphics.UserEffects
         /// always-on effect that defines the preset's "base mood". Returns null
         /// when the preset only uses transient particles.
         /// </summary>
+        /// <remarks>
+        /// Prefer <see cref="GlowColour"/> for username decorations — a flat
+        /// background drawable produces a visible rectangular halo behind the
+        /// bounding box, which reads as a square. <see cref="GlowColour"/>
+        /// drives a <see cref="TextShapeGlow"/> that hugs the actual letter
+        /// shapes via blur, which is the expected look in 99% of cases.
+        /// This hook is left in place for future "non-text" overlay needs
+        /// (e.g. an animated frame around an avatar — different shape).
+        /// </remarks>
         public virtual Drawable? CreateBackground() => null;
+
+        /// <summary>
+        /// Colour of the persistent text-shape glow rendered behind the
+        /// username. <see cref="UserAuraContainer"/> mirrors the wrapped
+        /// <see cref="osu.Framework.Graphics.Sprites.SpriteText"/> into a
+        /// <see cref="TextShapeGlow"/>, so the glow follows the actual letter
+        /// outlines rather than a rectangular bounding box.
+        /// </summary>
+        /// <remarks>
+        /// Returns null to opt out (no glow). When non-null, the wrapped
+        /// target must be a <see cref="osu.Framework.Graphics.Sprites.SpriteText"/>
+        /// for the container to mirror it; non-text targets silently skip the
+        /// glow because there's nothing meaningful to mirror.
+        /// </remarks>
+        public virtual Color4? GlowColour => null;
 
         /// <summary>
         /// Spawns one particle into <paramref name="parent"/>, sized/positioned

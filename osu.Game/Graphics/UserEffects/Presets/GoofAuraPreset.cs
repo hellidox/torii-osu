@@ -42,6 +42,12 @@ namespace osu.Game.Graphics.UserEffects.Presets
         public override double SpawnJitterMs => 280;
         public override int MaxAlive => 5;
 
+        // Soft pastel-green halo hugging the username letters. Pulled from
+        // the leaf palette base tone so the glow + leaves read as the same
+        // GOOF green family rather than a halo and particles in slightly
+        // different greens.
+        public override Color4? GlowColour => leaf_palette[0];
+
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {
             // Spawn within the name's bounding box (with a small inset so leaves

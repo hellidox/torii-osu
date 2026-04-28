@@ -47,6 +47,12 @@ namespace osu.Game.Graphics.UserEffects.Presets
         public override double SpawnJitterMs => 240;
         public override int MaxAlive => 6;
 
+        // Soft pink halo hugging the username letters. Same family as the
+        // PINK_PALETTE base tone so the heart particles + glow read as a
+        // single continuous "supporter pink" rather than two disconnected
+        // colours.
+        public override Color4? GlowColour => PINK_PALETTE[0];
+
         public override void EmitParticle(Container parent, Vector2 parentSize, Random random)
         {
             float startX = (float)(0.08 + random.NextDouble() * 0.84) * parentSize.X;
