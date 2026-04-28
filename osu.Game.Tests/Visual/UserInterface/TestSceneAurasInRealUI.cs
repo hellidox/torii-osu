@@ -66,34 +66,42 @@ namespace osu.Game.Tests.Visual.UserInterface
         {
             public readonly string Username;
             public readonly string? GroupKey;
+            public readonly string? GroupName;       // tooltip text on the group badge
+            public readonly string? GroupShortName;  // text rendered IN the badge (e.g. "ADM")
             public readonly string? GroupColourHex;
-            public Persona(string username, string? groupKey, string? groupColourHex)
+            public Persona(string username, string? groupKey, string? groupName, string? groupShortName, string? groupColourHex)
             {
                 Username = username;
                 GroupKey = groupKey;
+                GroupName = groupName;
+                GroupShortName = groupShortName;
                 GroupColourHex = groupColourHex;
             }
         }
 
         private static readonly Persona[] personas =
         {
-            new Persona("PlainPlayer",    null,              null),
-            new Persona("Shikkesora",     "torii-admin",     "FF8C70"),
-            new Persona("Imperation",     "torii-dev",       "78DCFF"),
-            new Persona("Boreas",         "torii-mod",       "FFD266"),
-            new Persona("Mash39",         "torii-qat",       "5AE0C0"),
-            new Persona("NahuelSupports", "torii-supporter", "FF7FC8"),
-            new Persona("GoofGuy",        "torii-goof",      "9CE5A0"),
+            // PlainPlayer has no group → no aura, no badge, baseline for comparison.
+            new Persona("PlainPlayer",    null,              null,                 null,    null),
+            // Group display Names mirror what appears in real osu! profile tooltips
+            // — short readable labels rather than the raw "torii-*" identifier
+            // (which is an internal vocabulary). ShortName = the 2-3 char pill text.
+            new Persona("Shikkesora",     "torii-admin",     "Administrator",      "ADM",   "FF8C70"),
+            new Persona("Imperation",     "torii-dev",       "Developer",          "DEV",   "78DCFF"),
+            new Persona("Boreas",         "torii-mod",       "Moderator",          "MOD",   "FFD266"),
+            new Persona("Mash39",         "torii-qat",       "Beatmap Nominator",  "QAT",   "5AE0C0"),
+            new Persona("NahuelSupports", "torii-supporter", "Torii Supporter",    "SUP",   "FF7FC8"),
+            new Persona("GoofGuy",        "torii-goof",      "Goofball",           "GOOF",  "9CE5A0"),
         };
 
         // Extra non-staff people used ONLY in the chat view to give the
         // chat a more realistic "mix of regular users and staff" look.
         private static readonly Persona[] extraChatPlayers =
         {
-            new Persona("Aluvi",     null, null),
-            new Persona("Mochi42",   null, null),
-            new Persona("CherryBomb", null, null),
-            new Persona("snail",     null, null),
+            new Persona("Aluvi",     null, null, null, null),
+            new Persona("Mochi42",   null, null, null, null),
+            new Persona("CherryBomb", null, null, null, null),
+            new Persona("snail",     null, null, null, null),
         };
 
         // ---------- State + step / slider wiring -------------------------
@@ -177,10 +185,19 @@ namespace osu.Game.Tests.Visual.UserInterface
                     new APIUserGroup
                     {
                         Identifier = p.GroupKey,
-                        Name = p.GroupKey,
+                        // Display Name surfaces in the GroupBadge tooltip when
+                        // hovering the pill in profile / user panels. Use the
+                        // human-readable label ("Administrator", not the raw
+                        // identifier) so tooltips in this test scene look the
+                        // same as real users.
+                        Name = p.GroupName!,
+                        // ShortName is the 2-3 char text rendered INSIDE the
+                        // pill ("ADM", "MOD", "QAT" ...). Without it the
+                        // badge renders an empty pill.
+                        ShortName = p.GroupShortName!,
                         // `GetTopColour` reads this — it's what colours the
-                        // chat name. Distinct hex per preset so the chat
-                        // view also visually surfaces "which staff group".
+                        // chat name. Distinct hex per preset so the chat view
+                        // also visually surfaces "which staff group".
                         Colour = "#" + p.GroupColourHex,
                     },
                 },

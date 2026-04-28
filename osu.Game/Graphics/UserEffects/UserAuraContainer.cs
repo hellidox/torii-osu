@@ -132,23 +132,24 @@ namespace osu.Game.Graphics.UserEffects
             // GlowColour, and (b) target is a SpriteText we can mirror —
             // otherwise there's nothing to base the text-shape blur on.
             //
-            // BypassAutoSizeAxes = Both is critical: the wrapper has
-            // AutoSizeAxes = Both and sizes itself to the target text, but
-            // the glow is intentionally LARGER than the text (its padding
-            // gives the blur kernel room to fade out before clipping).
-            // Without bypass, the glow grows the wrapper, the wrapper's
-            // centre shifts, and since the target text is anchored TopLeft
-            // while the glow is anchored Centre, they end up rendered at
-            // different positions — the glow visibly drifts down-right of
-            // the actual letters. Bypass makes the glow purely visual and
-            // keeps the wrapper hugging the text.
+            // The glow itself uses RelativeSizeAxes = Both internally
+            // (TextShapeGlow sets that in its constructor), so it
+            // automatically matches the wrapper's bounds exactly. Anchor +
+            // Origin TopLeft pin the glow to the same pixel origin as the
+            // wrapped target text (which Wrap resets to TopLeft inside the
+            // wrapper). This combination produces structural alignment —
+            // the glow's mirror SpriteText draws at exactly the same
+            // coordinates as the original, regardless of italic / kerning
+            // / spacing quirks. Earlier revisions used Anchor.Centre +
+            // BypassAutoSizeAxes which produced visible drift in
+            // production surfaces (chat, leaderboard rows) due to layout
+            // pass timing differences.
             if (preset.GlowColour is Color4 glowColour && target is SpriteText spriteText)
             {
                 Add(textGlow = new TextShapeGlow(spriteText.Text, spriteText.Font, glowColour)
                 {
-                    Anchor = Anchor.Centre,
-                    Origin = Anchor.Centre,
-                    BypassAutoSizeAxes = Axes.Both,
+                    Anchor = Anchor.TopLeft,
+                    Origin = Anchor.TopLeft,
                 });
             }
 
