@@ -52,6 +52,16 @@ namespace osu.Game.Graphics.UserEffects
         /// <summary>Duration of one fade direction (full cycle is 2x this).</summary>
         public double DurationMs { get; init; } = 1500;
 
+        /// <summary>
+        /// The mirror <see cref="OsuSpriteText"/> rendered into the buffer.
+        /// Exposed so the wrapping <see cref="UserAuraContainer"/> can read
+        /// its <see cref="Drawable.DrawSize"/> to bind the particle emitter
+        /// to the actual text-shape bounds (which the wrapper itself can't
+        /// always provide — see RelativeSizeAxes propagation note in
+        /// <see cref="UserAuraContainer.Wrap"/>).
+        /// </summary>
+        public OsuSpriteText Mirror { get; }
+
         public TextShapeGlow(LocalisableString text, FontUsage font, Color4 colour)
             : base(cachedFrameBuffer: false)
         {
@@ -86,7 +96,7 @@ namespace osu.Game.Graphics.UserEffects
             //
             // OsuSpriteText (not raw SpriteText) per the project's banned-
             // API analyzer.
-            Child = new OsuSpriteText
+            Child = Mirror = new OsuSpriteText
             {
                 Anchor = Anchor.TopLeft,
                 Origin = Anchor.TopLeft,

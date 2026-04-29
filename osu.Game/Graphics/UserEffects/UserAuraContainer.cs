@@ -154,11 +154,24 @@ namespace osu.Game.Graphics.UserEffects
                 });
             }
 
+            // Emitter is anchored TopLeft with NO RelativeSizeAxes — its
+            // size gets set explicitly each frame in Update() to match the
+            // glow's mirror text bounds (which auto-size to the rendered
+            // text shape, regardless of whether the wrapper has been
+            // stretched wide by RelativeSizeAxes propagation from a
+            // TruncatingSpriteText). Without this binding, the emitter
+            // span = wrapper width, and for the slanted song-select
+            // leaderboard or in-game gameplay HUD (both use
+            // TruncatingSpriteText with RelativeSizeAxes=X), the wrapper
+            // is much wider than the visible text — particles spawned at
+            // 5%-95% of "wrapper width" would land in empty space well
+            // past the username's last letter. Binding to the mirror's
+            // DrawSize keeps the spawn area bounded to the actual rendered
+            // glyph extent.
             Add(emitter = new ParticleAuraEmitter(preset)
             {
-                RelativeSizeAxes = Axes.Both,
-                Anchor = Anchor.Centre,
-                Origin = Anchor.Centre,
+                Anchor = Anchor.TopLeft,
+                Origin = Anchor.TopLeft,
             });
 
             // After re-adding the emitter, push the existing target back to the
@@ -174,6 +187,39 @@ namespace osu.Game.Graphics.UserEffects
         {
             base.LoadComplete();
             auraEnabled.BindValueChanged(_ => applyEnabledState(), true);
+        }
+
+        protected override void Update()
+        {
+            base.Update();
+
+            // Sync the emitter's bounds to the actual rendered text bounds
+            // each frame. The glow's Mirror SpriteText auto-sizes to the
+            // username text shape regardless of the wrapper's
+            // RelativeSizeAxes (since the mirror has no RelativeSizeAxes),
+            // so its DrawSize is the natural glyph extent — exactly what
+            // we want as the emitter's spawn area. Without this binding
+            // the emitter would span the (potentially much wider) wrapper
+            // bounds and particles would visibly spawn past the visible
+            // text in TruncatingSpriteText cases.
+            //
+            // Falls back to the wrapper's DrawSize when there is no glow
+            // (preset has GlowColour=null, or target isn't a SpriteText).
+            // In those cases there's no truncation issue to worry about
+            // because if there were a TruncatingSpriteText we'd have a
+            // glow to read from too.
+            if (emitter == null) return;
+
+            Vector2 spawnSize = textGlow?.Mirror.DrawSize ?? DrawSize;
+            if (spawnSize.X <= 0 || spawnSize.Y <= 0) return;
+
+            // Tolerate sub-pixel jitter so we don't thrash Size every
+            // frame (which would invalidate emitter children layout).
+            if (System.Math.Abs(emitter.DrawWidth - spawnSize.X) > 0.5f
+                || System.Math.Abs(emitter.DrawHeight - spawnSize.Y) > 0.5f)
+            {
+                emitter.Size = spawnSize;
+            }
         }
 
         private void applyEnabledState()
