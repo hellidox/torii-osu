@@ -96,25 +96,6 @@ namespace osu.Game.Online.Leaderboards
                     // Allow Rhythia beatmaps to bypass checks
                     bool isRhythiaBeatmap = newCriteria.Beatmap.Metadata?.Tags?.Contains("sspm", StringComparison.OrdinalIgnoreCase) == true;
 
-                    // Re-read the beatmap's online ID and status straight from realm.
-                    // The criteria's BeatmapInfo comes from the working beatmap which is detached
-                    // and won't reflect status updates pushed by the online set lookup
-                    // (see RealmPopulatingOnlineLookupSource). Without this refetch, hovering a map
-                    // whose status was just promoted server-side (e.g. graveyard → approved by Torii)
-                    // leaves the leaderboard stuck at "not available" until the working beatmap is
-                    // evicted from cache, which usually only happens after several map switches.
-                    var freshOnlineId = newCriteria.Beatmap.OnlineID;
-                    var freshStatus = newCriteria.Beatmap.Status;
-                    realm.Run(r =>
-                    {
-                        var refetched = r.Find<BeatmapInfo>(newCriteria.Beatmap.ID);
-                        if (refetched == null)
-                            return;
-
-                        freshOnlineId = refetched.OnlineID;
-                        freshStatus = refetched.Status;
-                    });
-
                     if (!isRhythiaBeatmap)
                     {
                         if (!newCriteria.Ruleset.IsLegacyRuleset())
@@ -123,7 +104,7 @@ namespace osu.Game.Online.Leaderboards
                             return;
                         }
 
-                        if (freshOnlineId <= 0 || freshStatus <= BeatmapOnlineStatus.Pending)
+                        if (newCriteria.Beatmap.OnlineID <= 0 || newCriteria.Beatmap.Status <= BeatmapOnlineStatus.Pending)
                         {
                             scores.Value = LeaderboardScores.Failure(LeaderboardFailState.BeatmapUnavailable);
                             return;

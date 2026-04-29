@@ -61,9 +61,6 @@ namespace osu.Game.Screens.SelectV2
         [Resolved]
         private IBindable<IReadOnlyList<Mod>> mods { get; set; } = null!;
 
-        [Resolved(CanBeNull = true)]
-        private IBindable<SongSelect.BeatmapSetLookupResult?>? onlineLookupResult { get; set; }
-
         [Resolved]
         private OverlayColourProvider colourProvider { get; set; } = null!;
 
@@ -204,26 +201,6 @@ namespace osu.Game.Screens.SelectV2
             beatmap.BindValueChanged(_ => RefetchScores());
             ruleset.BindValueChanged(_ => RefetchScores());
             mods.BindValueChanged(_ => refetchScoresFromMods());
-
-            // The online set lookup may push status / online-id updates into realm
-            // (e.g. Torii promoting a bancho-graveyard map to approved). When that
-            // completes we must re-evaluate the leaderboard availability gate against
-            // the freshly written realm state, otherwise the wedge stays stuck on
-            // "not available" until the working beatmap cache happens to be evicted.
-            //
-            // Only refetch if the current displayed state is one the lookup could
-            // plausibly resolve — otherwise we'd waste a request on every map click.
-            onlineLookupResult?.BindValueChanged(r =>
-            {
-                if (r.NewValue?.Status != SongSelect.BeatmapSetLookupStatus.Completed)
-                    return;
-
-                if (displayedState == LeaderboardState.BeatmapUnavailable
-                    || displayedState == LeaderboardState.NetworkFailure)
-                {
-                    RefetchScores();
-                }
-            });
 
             RefetchScores();
         }
