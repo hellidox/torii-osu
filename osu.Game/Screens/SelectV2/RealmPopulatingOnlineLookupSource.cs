@@ -92,13 +92,35 @@ namespace osu.Game.Screens.SelectV2
                     if (onlineBeatmaps.TryGetValue(dbBeatmap.OnlineID, out var onlineBeatmap))
                     {
                         // compare `BeatmapUpdaterMetadataLookup`
-                        if (dbBeatmap.OnlineMD5Hash != onlineBeatmap.MD5Hash)
+                        //
+                        // Only adopt the upstream MD5 / LastUpdated when this is the first
+                        // lookup we've ever performed for this beatmap, OR when upstream's
+                        // LastUpdated has actually advanced (i.e. the map was genuinely
+                        // re-uploaded). This prevents spurious "update available" prompts
+                        // for maps whose local file came from a re-packing mirror
+                        // (BeatConnect, Gatari, osu.direct) — those mirrors produce a
+                        // different .osu byte layout and therefore a different MD5 even
+                        // though the map plays identically. The Torii server already trusts
+                        // the client's MD5 on `/beatmaps/lookup`, so the *first* lookup
+                        // stores a matching pair; we just need to avoid clobbering that
+                        // here on subsequent set-level lookups that don't carry the client
+                        // md5 hint.
+                        bool isFirstOnlineLookup = dbBeatmap.LastOnlineUpdate == null;
+                        bool upstreamReuploaded = dbBeatmap.LastOnlineUpdate != onlineBeatmap.LastUpdated;
+
+                        if ((isFirstOnlineLookup || upstreamReuploaded) && dbBeatmap.OnlineMD5Hash != onlineBeatmap.MD5Hash)
                             dbBeatmap.OnlineMD5Hash = onlineBeatmap.MD5Hash;
 
                         if (dbBeatmap.LastOnlineUpdate != onlineBeatmap.LastUpdated)
                             dbBeatmap.LastOnlineUpdate = onlineBeatmap.LastUpdated;
 
-                        if (dbBeatmap.MatchesOnlineVersion && dbBeatmap.Status != onlineBeatmap.Status)
+                        // Status is decoupled from the MD5 gate intentionally: a server-side
+                        // status promotion (e.g. Torii overriding bancho's graveyard with
+                        // approved) must reach the client even when the local file's md5
+                        // diverges from upstream's. `LocallyModified` is preserved at the
+                        // set level above, which is enough to keep editor-modified maps from
+                        // having their explicit local-modification status overwritten.
+                        if (dbBeatmap.Status != BeatmapOnlineStatus.LocallyModified && dbBeatmap.Status != onlineBeatmap.Status)
                             dbBeatmap.Status = onlineBeatmap.Status;
 
                         HashSet<string> userTags = onlineBeatmap.TopTags?
