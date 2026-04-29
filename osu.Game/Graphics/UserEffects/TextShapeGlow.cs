@@ -12,45 +12,42 @@ using osuTK.Graphics;
 namespace osu.Game.Graphics.UserEffects
 {
     /// <summary>
-    /// A pulsing soft glow that hugs the actual letter shapes of a username
-    /// rather than its rectangular bounding box.
+    /// A pulsing soft glow that hugs the actual letter shapes of a username.
     ///
-    /// Implementation: a <see cref="BufferedContainer"/> with
-    /// <see cref="Drawable.RelativeSizeAxes"/> = <c>Both</c> so it always
-    /// matches its parent (the <see cref="UserAuraContainer"/>'s
-    /// auto-sized text bounds) EXACTLY. A duplicate of the username
-    /// <see cref="SpriteText"/> is rendered into the buffer and a small
-    /// gaussian blur is applied; because the buffered child is the actual
-    /// glyph shapes, the result reads as a soft halo following the letter
-    /// outlines.
+    /// Internally a <see cref="BufferedContainer"/> renders a duplicate of
+    /// the username text into an offscreen buffer, then applies a gaussian
+    /// blur. Because the buffered child is the actual glyph shapes, the
+    /// blurred result reads as a soft halo following the letter outlines —
+    /// equivalent to Photoshop's "Outer Glow" effect at small radius.
     ///
-    /// Earlier revisions used <see cref="CompositeDrawable.AutoSizeAxes"/>
-    /// + <see cref="CompositeDrawable.Padding"/> to grow the buffer slightly
-    /// past the text so the blur could fade out without being clipped at
-    /// the buffer edge. That produced visible misalignment in production
-    /// surfaces (chat, leaderboards, profile header): the glow drifted off
-    /// the username because the auto-size growth combined with
-    /// <see cref="Drawable.BypassAutoSizeAxes"/> didn't always cancel out
-    /// in practice — slight differences in layout pass timing left the
-    /// glow's centre N pixels away from the text's centre. Locking to the
-    /// parent's bounds via <see cref="Drawable.RelativeSizeAxes"/> removes
-    /// that whole class of bug at the cost of the blur being clipped at
-    /// the text edges (which actually reads as a tighter, more
-    /// "letter-hugging" glow — exactly what users were asking for).
-    ///
-    /// The mirror <see cref="OsuSpriteText"/> uses TopLeft anchor / origin
-    /// so it lands at the same pixel position as the wrapped target text
-    /// (which <see cref="UserAuraContainer.Wrap"/> resets to TopLeft inside
-    /// the wrapper). Identical font + same coordinate origin = pixel-perfect
-    /// alignment regardless of italic / spacing / kerning quirks.
+    /// The buffer is auto-sized to the mirror text plus
+    /// <see cref="GlowPadding"/> on every side so the gaussian falloff has
+    /// room to fade out before clipping at the buffer edge — the missing
+    /// padding was why the v1 glow looked stretched / discoloured at the
+    /// letter boundaries. The wrapped <see cref="UserAuraContainer"/> is
+    /// responsible for offsetting this drawable by <c>-GlowPadding</c> so
+    /// the inner mirror text lands exactly on top of the wrapped target's
+    /// pixel position; combined with <c>BypassAutoSizeAxes = Both</c> on
+    /// the container's side, the glow becomes purely visual padding that
+    /// extends outside the wrapper's bounds without growing it.
     /// </summary>
     public partial class TextShapeGlow : BufferedContainer
     {
+        /// <summary>
+        /// Pixels of padding around the mirror text inside the buffer, on
+        /// every side. Drives how far the blur halo can extend past the
+        /// letter outlines before clipping. The wrapping
+        /// <see cref="UserAuraContainer"/> reads this constant to compute
+        /// the negative position offset that re-aligns the glow with the
+        /// target text.
+        /// </summary>
+        public const float GlowPadding = 8f;
+
         /// <summary>Alpha at the peak of the breath cycle.</summary>
-        public float MaxAlpha { get; init; } = 0.85f;
+        public float MaxAlpha { get; init; } = 0.95f;
 
         /// <summary>Alpha at the trough of the breath cycle.</summary>
-        public float MinAlpha { get; init; } = 0.40f;
+        public float MinAlpha { get; init; } = 0.45f;
 
         /// <summary>Duration of one fade direction (full cycle is 2x this).</summary>
         public double DurationMs { get; init; } = 1500;
@@ -58,27 +55,34 @@ namespace osu.Game.Graphics.UserEffects
         public TextShapeGlow(LocalisableString text, FontUsage font, Color4 colour)
             : base(cachedFrameBuffer: false)
         {
-            // Fill the parent (UserAuraContainer) exactly. The wrapper has
-            // already auto-sized to the wrapped text, so RelativeSizeAxes
-            // = Both makes this glow exactly that size — never bigger,
-            // never smaller, never offset.
-            RelativeSizeAxes = Axes.Both;
+            // Auto-size to the mirror text plus the padding margin we add
+            // below. The padding gives the gaussian blur kernel room to
+            // fade out smoothly INSIDE the buffer before hitting the edge —
+            // without it the blur clips visibly at the buffer boundary and
+            // the glow reads as "letters with hard halo edges" rather than
+            // a soft outer glow. UserAuraContainer pairs this with
+            // BypassAutoSizeAxes so the glow's growth doesn't push the
+            // wrapper's auto-size away from the wrapped target.
+            AutoSizeAxes = Axes.Both;
+            Padding = new MarginPadding(GlowPadding);
 
-            // Tight blur. The buffer is exactly text-sized, so the
-            // gaussian falloff "softens" the letter shapes inside the
-            // buffer rather than producing a wide outer halo. Matches the
-            // user-facing requirement: "outer glow that hugs the letter
-            // shapes" — not a stretched blob.
-            BlurSigma = new Vector2(2.5f, 2f);
+            // Sigma 3.5/3 ≈ 10-11px effective blur radius — enough to read
+            // as a halo around the letter outlines, small enough that it
+            // still hugs glyph shapes rather than smearing into a blob.
+            // Stays inside the GlowPadding budget (8px) plus a small slack
+            // so the falloff is mostly resident in the buffer.
+            BlurSigma = new Vector2(3.5f, 3f);
 
             BackgroundColour = new Color4(0, 0, 0, 0);
             Alpha = 0;
 
             // Mirror SpriteText pinned to TopLeft so it lands at the same
-            // pixel position as the wrapped target (which Wrap also resets
-            // to TopLeft). With RelativeSizeAxes=Both above plus this
-            // TopLeft anchor here, the mirror text overlaps the wrapped
-            // text 1:1 — alignment is structural rather than approximate.
+            // pixel origin as the wrapped target text (which Wrap also
+            // resets to TopLeft inside the wrapper). The wrapping
+            // UserAuraContainer offsets this whole BufferedContainer by
+            // -GlowPadding so that, after the inward Padding pushes the
+            // SpriteText right/down by GlowPadding, the SpriteText ends up
+            // at the wrapper's (0, 0) — exactly overlapping the target.
             //
             // OsuSpriteText (not raw SpriteText) per the project's banned-
             // API analyzer.

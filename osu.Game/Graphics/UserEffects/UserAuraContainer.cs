@@ -8,6 +8,7 @@ using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
 using osu.Game.Configuration;
 using osu.Game.Online.API.Requests.Responses;
+using osuTK;
 using osuTK.Graphics;
 
 namespace osu.Game.Graphics.UserEffects
@@ -132,24 +133,24 @@ namespace osu.Game.Graphics.UserEffects
             // GlowColour, and (b) target is a SpriteText we can mirror —
             // otherwise there's nothing to base the text-shape blur on.
             //
-            // The glow itself uses RelativeSizeAxes = Both internally
-            // (TextShapeGlow sets that in its constructor), so it
-            // automatically matches the wrapper's bounds exactly. Anchor +
-            // Origin TopLeft pin the glow to the same pixel origin as the
-            // wrapped target text (which Wrap resets to TopLeft inside the
-            // wrapper). This combination produces structural alignment —
-            // the glow's mirror SpriteText draws at exactly the same
-            // coordinates as the original, regardless of italic / kerning
-            // / spacing quirks. Earlier revisions used Anchor.Centre +
-            // BypassAutoSizeAxes which produced visible drift in
-            // production surfaces (chat, leaderboard rows) due to layout
-            // pass timing differences.
+            // The TextShapeGlow auto-sizes to its mirror text plus
+            // GlowPadding on every side (so the gaussian blur has room to
+            // fade out without clipping at the buffer edge). To keep the
+            // mirror text aligned EXACTLY on top of the wrapped target,
+            // shift the whole glow by -GlowPadding: the inward Padding
+            // inside TextShapeGlow pushes its SpriteText right/down by
+            // +GlowPadding, and this position offset cancels that shift
+            // back to (0, 0) of the wrapper — same pixel origin as the
+            // wrapped target. BypassAutoSizeAxes keeps the glow's larger
+            // bounds from growing the wrapper itself.
             if (preset.GlowColour is Color4 glowColour && target is SpriteText spriteText)
             {
                 Add(textGlow = new TextShapeGlow(spriteText.Text, spriteText.Font, glowColour)
                 {
                     Anchor = Anchor.TopLeft,
                     Origin = Anchor.TopLeft,
+                    Position = new Vector2(-TextShapeGlow.GlowPadding),
+                    BypassAutoSizeAxes = Axes.Both,
                 });
             }
 
@@ -210,17 +211,32 @@ namespace osu.Game.Graphics.UserEffects
             // child that's trying to be 100% of the wrapper.
             var relativeSizeAxes = target.RelativeSizeAxes;
 
-            // Reset anchor/origin on the inner target so AutoSize on the
-            // wrapper sees a top-left-anchored child it can size to
-            // predictably. RelativeSizeAxes stays on the target so it can
-            // continue to fill the wrapper transitively.
+            // Pull Shear too. The slanted song-select leaderboard row sits
+            // inside a sheared container and its username SpriteText carries
+            // a counter-shear (-OsuGame.SHEAR) to render upright. If we
+            // don't preserve that on the wrapper, the wrapper itself stays
+            // sheared by the parent and the glow / emitter children inside
+            // it render sheared — while the target text (still carrying its
+            // counter-shear) renders upright. Result: visible misalignment
+            // in the slanted leaderboard. Move the shear up to the wrapper
+            // and reset it on the target so the wrapper renders upright AND
+            // every child inside it (target, glow, emitter) shares the same
+            // unsheared coordinate system.
+            var shear = target.Shear;
+
+            // Reset anchor/origin/shear on the inner target so AutoSize on
+            // the wrapper sees a top-left-anchored, zero-shear child it can
+            // size to predictably. RelativeSizeAxes stays on the target so
+            // it can continue to fill the wrapper transitively.
             target.Anchor = Anchor.TopLeft;
             target.Origin = Anchor.TopLeft;
+            target.Shear = Vector2.Zero;
 
             return new UserAuraContainer(user, target, relativeSizeAxes)
             {
                 Anchor = anchor,
                 Origin = origin,
+                Shear = shear,
             };
         }
     }
