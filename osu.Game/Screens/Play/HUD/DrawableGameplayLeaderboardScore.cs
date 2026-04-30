@@ -14,7 +14,10 @@ using osu.Framework.Layout;
 using osu.Game.Configuration;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
+using osu.Game.Graphics.UserEffects;
+using osu.Game.Online;
 using osu.Game.Online.API;
+using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Screens.Select.Leaderboards;
 using osu.Game.Users;
@@ -238,14 +241,19 @@ namespace osu.Game.Screens.Play.HUD
                                         {
                                             new[]
                                             {
-                                                usernameText = new TruncatingSpriteText
+                                                // Wrap the in-game gameplay-leaderboard username so the
+                                                // user's aura renders behind their name in the corner
+                                                // tracker during play. UserAuraContainer.Wrap returns the
+                                                // bare drawable when the user has no aura, so this is
+                                                // free for non-staff/donator players.
+                                                UserAuraContainer.Wrap(User as APIUser, usernameText = new TruncatingSpriteText
                                                 {
                                                     Anchor = Anchor.BottomLeft,
                                                     Origin = Anchor.BottomLeft,
                                                     Text = User?.Username ?? string.Empty,
                                                     Font = OsuFont.Style.Caption1.With(weight: FontWeight.SemiBold),
                                                     RelativeSizeAxes = Axes.X,
-                                                },
+                                                }),
                                                 accuracyText = new OsuSpriteText
                                                 {
                                                     Anchor = Anchor.BottomLeft,
@@ -366,6 +374,11 @@ namespace osu.Game.Screens.Play.HUD
             }
             else
                 setPanelColour(BackgroundColour ?? colours.Blue4);
+
+            // If this player has a Torii title, always use that colour regardless of leaderboard position.
+            var toriiColour = ToriiColourHelper.GetTopColour(User);
+            if (toriiColour.HasValue)
+                usernameColour = toriiColour.Value;
 
             usernameText.FadeColour(usernameColour, text_transition_duration, Easing.OutQuint);
 

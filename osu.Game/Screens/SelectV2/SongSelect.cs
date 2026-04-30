@@ -118,6 +118,12 @@ namespace osu.Game.Screens.SelectV2
         private BeatmapCarousel carousel = null!;
 
         protected FilterControl FilterControl { get; private set; } = null!;
+        protected BeatmapCarousel Carousel => carousel;
+        protected BeatmapTitleWedge TitleWedge => titleWedge;
+        protected BeatmapDetailsArea DetailsArea => detailsArea;
+        protected GridContainer MainGridContainer => mainGridContainer;
+        protected Container MainContentContainer => mainContent;
+        protected SkinnableContainer SkinnableContentContainer => skinnableContent;
 
         private BeatmapTitleWedge titleWedge = null!;
         private BeatmapDetailsArea detailsArea = null!;
@@ -276,29 +282,14 @@ namespace osu.Game.Screens.SelectV2
                                                         },
                                                         Children = new Drawable[]
                                                         {
-                                                            carousel = new BeatmapCarousel
-                                                            {
-                                                                BleedTop = FilterControl.HEIGHT_FROM_SCREEN_TOP + 5,
-                                                                BleedBottom = ScreenFooter.HEIGHT + 5,
-                                                                RelativeSizeAxes = Axes.Both,
-                                                                RequestPresentBeatmap = b => SelectAndRun(b, OnStart),
-                                                                RequestSelection = queueBeatmapSelection,
-                                                                RequestRecommendedSelection = requestRecommendedSelection,
-                                                                NewItemsPresented = newItemsPresented,
-                                                            },
+                                                            carousel = CreateBeatmapCarousel(),
                                                             noResultsPlaceholder = new NoResultsPlaceholder
                                                             {
                                                                 RequestClearFilterText = () => FilterControl.Search(string.Empty)
                                                             }
                                                         }
                                                     },
-                                                    FilterControl = new FilterControl
-                                                    {
-                                                        Anchor = Anchor.TopRight,
-                                                        Origin = Anchor.TopRight,
-                                                        RelativeSizeAxes = Axes.X,
-                                                        ScopedBeatmapSet = { BindTarget = ScopedBeatmapSet },
-                                                    },
+                                                    FilterControl = CreateFilterControl(),
                                                 }
                                             },
                                         },
@@ -331,12 +322,38 @@ namespace osu.Game.Screens.SelectV2
             showConvertedBeatmaps = config.GetBindable<bool>(OsuSetting.ShowConvertedBeatmaps);
         }
 
+        protected virtual BeatmapCarousel CreateBeatmapCarousel() => new BeatmapCarousel
+        {
+            BleedTop = FilterControl.HEIGHT_FROM_SCREEN_TOP + 5,
+            BleedBottom = ScreenFooter.HEIGHT + 5,
+            RelativeSizeAxes = Axes.Both,
+            RequestPresentBeatmap = RequestPresentBeatmap,
+            RequestSelection = RequestCarouselSelection,
+            RequestRecommendedSelection = RequestRecommendedCarouselSelection,
+            NewItemsPresented = OnCarouselItemsPresented,
+        };
+
+        protected virtual FilterControl CreateFilterControl() => new FilterControl
+        {
+            Anchor = Anchor.TopRight,
+            Origin = Anchor.TopRight,
+            RelativeSizeAxes = Axes.X,
+            ScopedBeatmapSet = { BindTarget = ScopedBeatmapSet },
+        };
+
+        protected Action<BeatmapInfo> RequestPresentBeatmap => beatmap => SelectAndRun(beatmap, OnStart);
+        protected Action<GroupedBeatmap> RequestCarouselSelection => queueBeatmapSelection;
+        protected Action<IEnumerable<GroupedBeatmap>> RequestRecommendedCarouselSelection => requestRecommendedSelection;
+        protected Action<IEnumerable<CarouselItem>> OnCarouselItemsPresented => newItemsPresented;
+
         // Colour scheme for mod overlay is left as default (green) to match mods button.
         // Not sure about this, but we'll iterate based on feedback.
         protected virtual ModSelectOverlay CreateModSelectOverlay() => new UserModSelectOverlay
         {
             ShowPresets = true,
         };
+
+        protected void ToggleModSelectOverlayVisibility() => modSelectOverlay.ToggleVisibility();
 
         private void requestRecommendedSelection(IEnumerable<GroupedBeatmap> groupedBeatmaps)
         {

@@ -237,15 +237,12 @@ namespace osu.Game.Rulesets.Osu
 
         public override Drawable CreateIcon() => new SpriteIcon { Icon = OsuIcon.RulesetOsu };
 
+        // pp-dev is now the primary PP system — these always use the pp-dev calculators.
         public override DifficultyCalculator CreateDifficultyCalculator(IWorkingBeatmap beatmap)
-            => ToriiPpVariantState.UsePpDevVariant
-                ? new PpDevOsuDifficultyCalculator(RulesetInfo, beatmap)
-                : new OsuDifficultyCalculator(RulesetInfo, beatmap);
+            => new PpDevOsuDifficultyCalculator(RulesetInfo, beatmap);
 
         public override PerformanceCalculator CreatePerformanceCalculator()
-            => ToriiPpVariantState.UsePpDevVariant
-                ? new PpDevOsuPerformanceCalculator()
-                : new OsuPerformanceCalculator();
+            => new PpDevOsuPerformanceCalculator();
 
         public override HitObjectComposer CreateHitObjectComposer() => new OsuHitObjectComposer(this);
 

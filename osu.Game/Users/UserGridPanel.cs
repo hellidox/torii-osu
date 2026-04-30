@@ -4,8 +4,10 @@
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
+using osu.Game.Graphics.UserEffects;
 using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Overlays.Profile.Header.Components;
+using osu.Game.Users.Drawables;
 using osuTK;
 
 namespace osu.Game.Users
@@ -92,11 +94,12 @@ namespace osu.Game.Users
                                 },
                                 new Drawable[]
                                 {
-                                    CreateUsername().With(username =>
+                                    // Torii: wrap username in aura container (no-op for non-elite users).
+                                    UserAuraContainer.Wrap(User, CreateUsername().With(username =>
                                     {
                                         username.Anchor = Anchor.CentreLeft;
                                         username.Origin = Anchor.CentreLeft;
-                                    })
+                                    }))
                                 }
                             }
                         }
@@ -126,6 +129,12 @@ namespace osu.Game.Users
                     SupportLevel = User.SupportLevel
                 });
             }
+
+            details.Add(CreateClientBadge().With(badge =>
+            {
+                badge.Anchor = Anchor.CentreLeft;
+                badge.Origin = Anchor.CentreLeft;
+            }));
 
             return layout;
         }

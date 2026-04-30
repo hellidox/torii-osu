@@ -21,6 +21,7 @@ using osu.Game.Extensions;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Sprites;
+using osu.Game.Graphics.UserEffects;
 using osu.Game.Graphics.UserInterface;
 using osu.Game.Localisation;
 using osu.Game.Overlays;
@@ -36,6 +37,7 @@ using osu.Game.Rulesets.Mods;
 using osu.Game.Utils;
 using CommonStrings = osu.Game.Localisation.CommonStrings;
 using WebCommonStrings = osu.Game.Resources.Localisation.Web.CommonStrings;
+using osu.Game.Online.API.Requests.Responses;
 
 namespace osu.Game.Online.Leaderboards
 {
@@ -167,11 +169,21 @@ namespace osu.Game.Online.Leaderboards
                                     Position = new Vector2(HEIGHT - edge_margin, 0f),
                                     Children = new Drawable[]
                                     {
-                                        nameLabel = new OsuSpriteText
+                                        // Wrap the slanted leaderboard username in UserAuraContainer
+                                        // so admin/dev/mod/qat/supporter/goof users get their group's
+                                        // aura rendered behind the name in the song-select side
+                                        // panel and the in-game leaderboard. Wrap.Wrap() returns the
+                                        // bare drawable when the user has no aura, so non-staff
+                                        // users pay zero overhead. We still need a `nameLabel`
+                                        // reference for the rest of the layout code that animates /
+                                        // recolours it later, so we keep it on the inner SpriteText
+                                        // and let Wrap wrap around it.
+                                        UserAuraContainer.Wrap(user as APIUser, nameLabel = new OsuSpriteText
                                         {
                                             Text = user.Username,
-                                            Font = OsuFont.GetFont(size: 23, weight: FontWeight.Bold, italics: true)
-                                        },
+                                            Font = OsuFont.GetFont(size: 23, weight: FontWeight.Bold, italics: true),
+                                            Colour = ToriiColourHelper.GetTopColour(user as APIUser) ?? Color4.White,
+                                        }),
                                         new FillFlowContainer
                                         {
                                             Anchor = Anchor.BottomLeft,

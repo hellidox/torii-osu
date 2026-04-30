@@ -43,12 +43,14 @@ namespace osu.Game.Overlays.ToriiBriefing
     public partial class ToriiBriefingOverlay : OsuFocusedOverlayContainer
     {
         private const string snapshot_filename = @"briefing-state.json";
+        private const string last_briefing_filename = @"last-briefing.json";
 
         private readonly ChannelManager channelManager;
         private readonly HashSet<string> shownThisSession = new HashSet<string>();
         private readonly HashSet<string> pendingThisSession = new HashSet<string>();
         private readonly IBindable<APIState> apiState = new Bindable<APIState>();
         private readonly IBindable<APIUser> localUser = new Bindable<APIUser>();
+        private int latestBriefingRequestId;
 
         private IAPIProvider api;
         private RulesetStore rulesets;
@@ -361,7 +363,7 @@ namespace osu.Game.Overlays.ToriiBriefing
             }
 
             var ruleset = rulesets.GetRuleset(rulesetName) ?? rulesets.GetRuleset("osu") ?? rulesets.GetRuleset(0) ?? rulesets.AvailableRulesets.First();
-            var pending = new PendingBriefing(sessionKey, localUser.Value, ruleset, usePpDev);
+            var pending = new PendingBriefing(++latestBriefingRequestId, sessionKey, localUser.Value, ruleset, usePpDev);
 
             Logger.Log($"Torii briefing fetching for {sessionKey}.");
 
@@ -369,12 +371,12 @@ namespace osu.Game.Overlays.ToriiBriefing
             userRequest.Success += response =>
             {
                 pending.User = response;
-                pending.MarkComplete();
+                pending.MarkBlockingComplete();
                 showWhenComplete(pending);
             };
             userRequest.Failure += _ =>
             {
-                pending.MarkComplete();
+                pending.MarkBlockingComplete();
                 showWhenComplete(pending);
             };
 
@@ -382,27 +384,25 @@ namespace osu.Game.Overlays.ToriiBriefing
             scoresRequest.Success += response =>
             {
                 pending.TopScores = response;
-                pending.MarkComplete();
+                pending.MarkBlockingComplete();
                 showWhenComplete(pending);
             };
             scoresRequest.Failure += _ =>
             {
-                pending.MarkComplete();
+                pending.MarkBlockingComplete();
                 showWhenComplete(pending);
             };
 
+            // Radar is an enhancement: if it's slow or unavailable (older server), the briefing
+            // still has plenty to show. Fire-and-forget so it never delays the overlay appearing.
             var radarRequest = new GetToriiBriefingRadarRequest(ruleset);
             radarRequest.Success += response =>
             {
                 pending.Radar = response;
-                pending.MarkComplete();
-                showWhenComplete(pending);
             };
             radarRequest.Failure += _ =>
             {
                 // Older servers won't have this endpoint yet. Keep the briefing useful using local fallback cards.
-                pending.MarkComplete();
-                showWhenComplete(pending);
             };
 
             try
@@ -421,6 +421,13 @@ namespace osu.Game.Overlays.ToriiBriefing
         {
             if (!pending.IsComplete)
                 return;
+
+            if (pending.RequestId != latestBriefingRequestId)
+            {
+                pendingThisSession.Remove(pending.SessionKey);
+                Logger.Log($"Torii briefing ignored stale request {pending.RequestId} for {pending.SessionKey} (latest={latestBriefingRequestId}).");
+                return;
+            }
 
             var payload = createPayload(pending);
 
@@ -447,6 +454,8 @@ namespace osu.Game.Overlays.ToriiBriefing
             var scores = pending.TopScores ?? new List<SoloScoreInfo>();
             string variant = pending.UsePpDev ? "pp_dev" : "stable";
             string snapshotKey = $"{user.Id}:{pending.Ruleset.ShortName}:{variant}";
+            string stableSnapshotKey = $"{user.Id}:{pending.Ruleset.ShortName}:stable";
+            string promotionMigrationKey = $"{user.Id}:{pending.Ruleset.ShortName}:ppdev-promotion";
 
             var currentSnapshot = new BriefingSnapshot
             {
@@ -463,6 +472,17 @@ namespace osu.Game.Overlays.ToriiBriefing
 
             var state = loadSnapshotState();
             state.Users.TryGetValue(snapshotKey, out var previousSnapshot);
+
+            if (pending.UsePpDev
+                && !state.ConsumedPromotionMigrations.Contains(promotionMigrationKey)
+                && state.Users.TryGetValue(stableSnapshotKey, out var stableSnapshot))
+            {
+                // The first pp-dev briefing after Torii promoted pp-dev to the main osu! variant
+                // should compare against the user's last stable snapshot, even if a blank/partial
+                // pp-dev snapshot was already written earlier in the same update window.
+                previousSnapshot = stableSnapshot;
+                state.ConsumedPromotionMigrations.Add(promotionMigrationKey);
+            }
 
             state.Users[snapshotKey] = currentSnapshot;
             saveSnapshotState(state);
@@ -583,8 +603,11 @@ namespace osu.Game.Overlays.ToriiBriefing
 
         private void displayPayload(BriefingPayload payload)
         {
+            saveLastBriefing(payload);
+
             title.Text = $"Welcome back, {payload.User.Username}.";
-            subtitle.Text = $"{payload.Ruleset.Name} - {(payload.Variant == "pp_dev" ? "latest pp-dev calculations" : "standard calculations")} - {DateTimeOffset.Now:MMM d, HH:mm}";
+            var capturedAt = payload.Current?.CapturedAt.ToLocalTime() ?? DateTimeOffset.Now;
+            subtitle.Text = $"{payload.Ruleset.Name} - {(payload.Variant == "pp_dev" ? "latest pp-dev calculations" : "standard calculations")} - {capturedAt:MMM d, HH:mm}";
 
             cardFlow.Clear();
 
@@ -596,6 +619,120 @@ namespace osu.Game.Overlays.ToriiBriefing
             addItem(new BriefingSectionHeader("dojo radar", "things that changed around you while you were away"));
             addItem(createMessageCard(payload));
             addItem(createRadarCard(payload));
+        }
+
+        public void ForceBriefingRefresh()
+        {
+            if (!api.IsLoggedIn || localUser.Value?.Id <= 1)
+                return;
+
+            var user = localUser.Value;
+            var ruleset = getCurrentRuleset(user);
+            string variant = ToriiPpVariantState.UsePpDevVariant ? "pp_dev" : "stable";
+            string sessionKey = $"{user.Id}:{ruleset.ShortName}:{variant}";
+
+            latestBriefingRequestId++;
+            shownThisSession.Remove(sessionKey);
+            pendingThisSession.Remove(sessionKey);
+            queueBriefingIfReady();
+        }
+
+        public void ShowLastBriefing()
+        {
+            var stored = loadLastBriefing();
+
+            var payload = stored != null
+                ? restoreStoredBriefing(stored)
+                : restoreBriefingFromSnapshots();
+
+            if (payload == null)
+                return;
+
+            displayPayload(payload);
+            Show();
+        }
+
+        private BriefingPayload restoreBriefingFromSnapshots()
+        {
+            if (localUser.Value?.Id <= 1)
+                return null;
+
+            var user = localUser.Value;
+            var ruleset = getCurrentRuleset(user);
+            var state = loadSnapshotState();
+            string preferredVariant = ToriiPpVariantState.UsePpDevVariant ? "pp_dev" : "stable";
+
+            BriefingSnapshot current = null;
+            BriefingSnapshot previous = null;
+            string selectedVariant = preferredVariant;
+
+            string currentKey = $"{user.Id}:{ruleset.ShortName}:{preferredVariant}";
+
+            if (state.Users.TryGetValue(currentKey, out current))
+            {
+                if (preferredVariant == "pp_dev")
+                    state.Users.TryGetValue($"{user.Id}:{ruleset.ShortName}:stable", out previous);
+            }
+            else if (preferredVariant == "pp_dev"
+                     && state.Users.TryGetValue($"{user.Id}:{ruleset.ShortName}:pp_dev", out current))
+            {
+                selectedVariant = "pp_dev";
+                state.Users.TryGetValue($"{user.Id}:{ruleset.ShortName}:stable", out previous);
+            }
+            else if (state.Users.TryGetValue($"{user.Id}:{ruleset.ShortName}:stable", out current))
+            {
+                selectedVariant = "stable";
+            }
+
+            if (current == null)
+                return null;
+
+            return new BriefingPayload
+            {
+                User = user,
+                Ruleset = ruleset,
+                Variant = selectedVariant,
+                Current = current,
+                Previous = previous,
+                ScoreChanges = getScoreChanges(previous, current),
+                UnreadMessages = getUnreadMessages(user.Id),
+                RadarEvents = new List<BriefingRadarEvent>(),
+                RadarFirstSnapshot = false,
+                RadarTrackedCount = 0,
+            };
+        }
+
+        public void ShowPpDevPromotionBriefing()
+        {
+            if (localUser.Value?.Id <= 1)
+                return;
+
+            var user = localUser.Value;
+            var ruleset = getCurrentRuleset(user);
+            var state = loadSnapshotState();
+
+            string stableSnapshotKey = $"{user.Id}:{ruleset.ShortName}:stable";
+            string ppDevSnapshotKey = $"{user.Id}:{ruleset.ShortName}:pp_dev";
+
+            if (!state.Users.TryGetValue(stableSnapshotKey, out var stableSnapshot) || !state.Users.TryGetValue(ppDevSnapshotKey, out var ppDevSnapshot))
+                return;
+
+            var payload = new BriefingPayload
+            {
+                User = user,
+                Ruleset = ruleset,
+                Variant = "pp_dev",
+                Current = ppDevSnapshot,
+                Previous = stableSnapshot,
+                ScoreChanges = getScoreChanges(stableSnapshot, ppDevSnapshot),
+                UnreadMessages = new List<BriefingMessage>(),
+                RadarEvents = new List<BriefingRadarEvent>(),
+                RadarFirstSnapshot = false,
+                RadarTrackedCount = 0,
+            };
+
+            displayPayload(payload);
+            Show();
         }
 
         public void ShowSampleBriefing()
@@ -707,18 +844,9 @@ namespace osu.Game.Overlays.ToriiBriefing
             };
         }
 
-        private BriefingCard createScoreCard(BriefingPayload payload)
+        private Drawable createScoreCard(BriefingPayload payload)
         {
-            var accent = payload.ScoreChanges.Count > 0 ? Color4Extensions.FromHex(@"ff66b3") : Color4Extensions.FromHex(@"69d7ff");
-            string headline = payload.ScoreChanges.Count == 0
-                ? "No top play recalcs detected"
-                : $"{payload.ScoreChanges.Count} top {(payload.ScoreChanges.Count == 1 ? "score moved" : "scores moved")}";
-
-            string detail = payload.ScoreChanges.Count == 0
-                ? "Your top plays match the last briefing snapshot."
-                : string.Join("\n", payload.ScoreChanges.Take(2).Select(c => $"{trim(c.Title, 48)}: {formatPP(c.OldPP)} -> {formatPP(c.NewPP)}"));
-
-            return new BriefingCard(FontAwesome.Solid.Sync, "recalculation watch", headline, detail, accent, payload.ScoreChanges.Count > 0 ? 142 : 126)
+            return new BriefingRecalcCard(payload.ScoreChanges)
             {
                 TooltipText = payload.ScoreChanges.Count == 0
                     ? "When PP changes are detected, the changed scores will be listed here."
@@ -815,15 +943,32 @@ namespace osu.Game.Overlays.ToriiBriefing
             try
             {
                 if (!briefingStorage.Exists(snapshot_filename))
-                    return new BriefingState();
+                    return normaliseState(new BriefingState());
 
                 using (var stream = briefingStorage.GetStream(snapshot_filename, FileAccess.Read, FileMode.Open))
                 using (var reader = new StreamReader(stream))
-                    return reader.ReadToEnd().Deserialize<BriefingState>() ?? new BriefingState();
+                    return normaliseState(reader.ReadToEnd().Deserialize<BriefingState>() ?? new BriefingState());
             }
             catch
             {
-                return new BriefingState();
+                return normaliseState(new BriefingState());
+            }
+        }
+
+        private StoredBriefing loadLastBriefing()
+        {
+            try
+            {
+                if (!briefingStorage.Exists(last_briefing_filename))
+                    return null;
+
+                using (var stream = briefingStorage.GetStream(last_briefing_filename, FileAccess.Read, FileMode.Open))
+                using (var reader = new StreamReader(stream))
+                    return reader.ReadToEnd().Deserialize<StoredBriefing>();
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -831,6 +976,8 @@ namespace osu.Game.Overlays.ToriiBriefing
         {
             try
             {
+                state = normaliseState(state);
+
                 using (var stream = briefingStorage.GetStream(snapshot_filename, FileAccess.Write, FileMode.Create))
                 using (var writer = new StreamWriter(stream))
                     writer.Write(state.Serialize());
@@ -839,6 +986,69 @@ namespace osu.Game.Overlays.ToriiBriefing
             {
                 // Briefing snapshots are a convenience feature; never break login if local storage is unavailable.
             }
+        }
+
+        private static BriefingState normaliseState(BriefingState state)
+        {
+            state ??= new BriefingState();
+            state.Users ??= new Dictionary<string, BriefingSnapshot>();
+            state.ConsumedPromotionMigrations ??= new HashSet<string>();
+            return state;
+        }
+
+        private void saveLastBriefing(BriefingPayload payload)
+        {
+            try
+            {
+                var stored = new StoredBriefing
+                {
+                    UserId = payload.User?.Id ?? 0,
+                    Username = payload.User?.Username ?? payload.Current?.Username ?? "player",
+                    Ruleset = payload.Ruleset?.ShortName ?? payload.Current?.Ruleset ?? "osu",
+                    Variant = payload.Variant ?? payload.Current?.Variant ?? "stable",
+                    Current = payload.Current,
+                    Previous = payload.Previous,
+                    ScoreChanges = payload.ScoreChanges ?? new List<BriefingScoreChange>(),
+                    UnreadMessages = payload.UnreadMessages ?? new List<BriefingMessage>(),
+                    RadarEvents = payload.RadarEvents ?? new List<BriefingRadarEvent>(),
+                    RadarFirstSnapshot = payload.RadarFirstSnapshot,
+                    RadarTrackedCount = payload.RadarTrackedCount,
+                };
+
+                using (var stream = briefingStorage.GetStream(last_briefing_filename, FileAccess.Write, FileMode.Create))
+                using (var writer = new StreamWriter(stream))
+                    writer.Write(stored.Serialize());
+            }
+            catch
+            {
+                // Re-showing the last briefing is a convenience feature; never break the live overlay.
+            }
+        }
+
+        private BriefingPayload restoreStoredBriefing(StoredBriefing stored)
+        {
+            var ruleset = rulesets?.GetRuleset(stored.Ruleset) ?? rulesets?.GetRuleset("osu") ?? rulesets?.GetRuleset(0);
+
+            if (ruleset == null)
+                return null;
+
+            return new BriefingPayload
+            {
+                User = new APIUser
+                {
+                    Id = stored.UserId,
+                    Username = stored.Username,
+                },
+                Ruleset = ruleset,
+                Variant = stored.Variant,
+                Current = stored.Current,
+                Previous = stored.Previous,
+                ScoreChanges = stored.ScoreChanges ?? new List<BriefingScoreChange>(),
+                UnreadMessages = stored.UnreadMessages ?? new List<BriefingMessage>(),
+                RadarEvents = stored.RadarEvents ?? new List<BriefingRadarEvent>(),
+                RadarFirstSnapshot = stored.RadarFirstSnapshot,
+                RadarTrackedCount = stored.RadarTrackedCount,
+            };
         }
 
         protected override void PopIn()
@@ -874,8 +1084,13 @@ namespace osu.Game.Overlays.ToriiBriefing
 
         private sealed class PendingBriefing
         {
-            private int remainingRequests = 3;
+            // We only block on the two requests whose payload meaningfully changes the briefing
+            // (user stats and top scores). The radar is purely additive UI, so we display the
+            // briefing as soon as User+TopScores are in and let the radar fill in afterwards.
+            // This shaves the slowest (or failing) request out of the critical path on login.
+            private int remainingBlockingRequests = 2;
 
+            public readonly int RequestId;
             public readonly APIUser LocalUser;
             public readonly RulesetInfo Ruleset;
             public readonly bool UsePpDev;
@@ -884,17 +1099,18 @@ namespace osu.Game.Overlays.ToriiBriefing
             public APIUser User;
             public List<SoloScoreInfo> TopScores;
             public ToriiBriefingRadarResponse Radar;
-            public bool IsComplete => remainingRequests <= 0;
+            public bool IsComplete => remainingBlockingRequests <= 0;
 
-            public PendingBriefing(string sessionKey, APIUser localUser, RulesetInfo ruleset, bool usePpDev)
+            public PendingBriefing(int requestId, string sessionKey, APIUser localUser, RulesetInfo ruleset, bool usePpDev)
             {
+                RequestId = requestId;
                 SessionKey = sessionKey;
                 LocalUser = localUser;
                 Ruleset = ruleset;
                 UsePpDev = usePpDev;
             }
 
-            public void MarkComplete() => remainingRequests--;
+            public void MarkBlockingComplete() => remainingBlockingRequests--;
         }
 
         private sealed class BriefingPayload
@@ -915,6 +1131,24 @@ namespace osu.Game.Overlays.ToriiBriefing
         {
             [JsonProperty("users")]
             public Dictionary<string, BriefingSnapshot> Users { get; set; } = new Dictionary<string, BriefingSnapshot>();
+
+            [JsonProperty("consumed_promotion_migrations")]
+            public HashSet<string> ConsumedPromotionMigrations { get; set; } = new HashSet<string>();
+        }
+
+        private sealed class StoredBriefing
+        {
+            public int UserId { get; set; }
+            public string Username { get; set; }
+            public string Ruleset { get; set; }
+            public string Variant { get; set; }
+            public BriefingSnapshot Current { get; set; }
+            public BriefingSnapshot Previous { get; set; }
+            public List<BriefingScoreChange> ScoreChanges { get; set; } = new List<BriefingScoreChange>();
+            public List<BriefingMessage> UnreadMessages { get; set; } = new List<BriefingMessage>();
+            public List<BriefingRadarEvent> RadarEvents { get; set; } = new List<BriefingRadarEvent>();
+            public bool RadarFirstSnapshot { get; set; }
+            public int RadarTrackedCount { get; set; }
         }
 
         private sealed class BriefingSnapshot
@@ -1112,6 +1346,319 @@ namespace osu.Game.Overlays.ToriiBriefing
                                 Font = OsuFont.GetFont(size: 12.5f, weight: FontWeight.SemiBold),
                                 Colour = Color4.White.Opacity(0.42f),
                             },
+                        },
+                    },
+                };
+            }
+        }
+
+        private partial class BriefingRecalcCard : CompositeDrawable, IHasTooltip
+        {
+            private static readonly Color4 accent_changes = Color4Extensions.FromHex(@"ff66b3");
+            private static readonly Color4 accent_no_changes = Color4Extensions.FromHex(@"69d7ff");
+            private static readonly Color4 color_gain = Color4Extensions.FromHex(@"8bffcf");
+            private static readonly Color4 color_loss = Color4Extensions.FromHex(@"ff8f9c");
+
+            public LocalisableString TooltipText { get; set; }
+
+            public BriefingRecalcCard(List<BriefingScoreChange> changes)
+            {
+                var accent = changes.Count > 0 ? accent_changes : accent_no_changes;
+                bool hasChanges = changes.Count > 0;
+
+                RelativeSizeAxes = Axes.X;
+                AutoSizeAxes = Axes.Y;
+                Masking = true;
+                CornerRadius = 20;
+                BorderThickness = 1;
+                BorderColour = accent.Opacity(0.28f);
+                EdgeEffect = new EdgeEffectParameters
+                {
+                    Type = EdgeEffectType.Shadow,
+                    Colour = accent.Opacity(0.12f),
+                    Radius = 14,
+                };
+
+                var textFlow = new FillFlowContainer
+                {
+                    X = 76,
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                    Padding = new MarginPadding { Right = 30 },
+                    Direction = FillDirection.Vertical,
+                    Spacing = new Vector2(0, 4),
+                };
+
+                // Kicker
+                textFlow.Add(new OsuSpriteText
+                {
+                    Text = "RECALCULATION WATCH",
+                    Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                    Colour = accent,
+                });
+
+                // Headline
+                string headline = hasChanges
+                    ? $"{changes.Count} top {(changes.Count == 1 ? "score" : "scores")} recalculated"
+                    : "No top play recalcs detected";
+
+                textFlow.Add(new OsuSpriteText
+                {
+                    Text = headline,
+                    Font = OsuFont.GetFont(size: 22, weight: FontWeight.Bold),
+                    Margin = new MarginPadding { Bottom = 2 },
+                });
+
+                if (!hasChanges)
+                {
+                    textFlow.Add(new OsuSpriteText
+                    {
+                        Text = "Your top plays match the last briefing snapshot.",
+                        Font = OsuFont.GetFont(size: 14.5f, weight: FontWeight.SemiBold),
+                        Colour = Color4.White.Opacity(0.62f),
+                    });
+                }
+                else
+                {
+                    // Top separator
+                    textFlow.Add(new Box
+                    {
+                        RelativeSizeAxes = Axes.X,
+                        Height = 1,
+                        Colour = Color4.White.Opacity(0.10f),
+                        Margin = new MarginPadding { Vertical = 3 },
+                        BypassAutoSizeAxes = Axes.None,
+                    });
+
+                    // Split into top gains and top losses
+                    var gains = changes.Where(c => c.Delta > 0).OrderByDescending(c => c.Delta).ToList();
+                    var losses = changes.Where(c => c.Delta < 0).OrderBy(c => c.Delta).ToList();
+
+                    // -- TOP GAINS --
+                    if (gains.Count > 0)
+                    {
+                        textFlow.Add(new OsuSpriteText
+                        {
+                            Text = "TOP GAINS",
+                            Font = OsuFont.GetFont(size: 11, weight: FontWeight.Bold),
+                            Colour = color_gain.Opacity(0.72f),
+                            Margin = new MarginPadding { Top = 2, Bottom = 1 },
+                        });
+
+                        int gainDisplay = Math.Min(5, gains.Count);
+                        for (int i = 0; i < gainDisplay; i++)
+                        {
+                            var change = gains[i];
+                            textFlow.Add(new FillFlowContainer
+                            {
+                                RelativeSizeAxes = Axes.X,
+                                AutoSizeAxes = Axes.Y,
+                                Direction = FillDirection.Horizontal,
+                                Spacing = new Vector2(6, 0),
+                                Children = new Drawable[]
+                                {
+                                    new OsuSpriteText
+                                    {
+                                        Text = $"▲ {formatSignedPP(change.Delta)}",
+                                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
+                                        Colour = color_gain,
+                                        Width = 88,
+                                    },
+                                    new OsuSpriteText
+                                    {
+                                        Text = trim(change.Title, 44),
+                                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.SemiBold),
+                                        Colour = Color4.White.Opacity(0.78f),
+                                    },
+                                },
+                            });
+                        }
+
+                        if (gains.Count > 5)
+                        {
+                            textFlow.Add(new OsuSpriteText
+                            {
+                                Text = $"  + {gains.Count - 5} more gains",
+                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                                Colour = Color4.White.Opacity(0.38f),
+                            });
+                        }
+                    }
+
+                    // Separator between sections (only when both exist)
+                    if (gains.Count > 0 && losses.Count > 0)
+                    {
+                        textFlow.Add(new Box
+                        {
+                            RelativeSizeAxes = Axes.X,
+                            Height = 1,
+                            Colour = Color4.White.Opacity(0.08f),
+                            Margin = new MarginPadding { Vertical = 5 },
+                        });
+                    }
+
+                    // -- TOP LOSSES --
+                    if (losses.Count > 0)
+                    {
+                        textFlow.Add(new OsuSpriteText
+                        {
+                            Text = "TOP LOSSES",
+                            Font = OsuFont.GetFont(size: 11, weight: FontWeight.Bold),
+                            Colour = color_loss.Opacity(0.72f),
+                            Margin = new MarginPadding { Top = 2, Bottom = 1 },
+                        });
+
+                        int lossDisplay = Math.Min(5, losses.Count);
+                        for (int i = 0; i < lossDisplay; i++)
+                        {
+                            var change = losses[i];
+                            textFlow.Add(new FillFlowContainer
+                            {
+                                RelativeSizeAxes = Axes.X,
+                                AutoSizeAxes = Axes.Y,
+                                Direction = FillDirection.Horizontal,
+                                Spacing = new Vector2(6, 0),
+                                Children = new Drawable[]
+                                {
+                                    new OsuSpriteText
+                                    {
+                                        Text = $"▼ {formatSignedPP(change.Delta)}",
+                                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
+                                        Colour = color_loss,
+                                        Width = 88,
+                                    },
+                                    new OsuSpriteText
+                                    {
+                                        Text = trim(change.Title, 44),
+                                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.SemiBold),
+                                        Colour = Color4.White.Opacity(0.78f),
+                                    },
+                                },
+                            });
+                        }
+
+                        if (losses.Count > 5)
+                        {
+                            textFlow.Add(new OsuSpriteText
+                            {
+                                Text = $"  + {losses.Count - 5} more losses",
+                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                                Colour = Color4.White.Opacity(0.38f),
+                            });
+                        }
+                    }
+
+                    // Highlight footer (best gain / worst loss summary)
+                    if (gains.Count > 0 || losses.Count > 0)
+                    {
+                        textFlow.Add(new Box
+                        {
+                            RelativeSizeAxes = Axes.X,
+                            Height = 1,
+                            Colour = Color4.White.Opacity(0.10f),
+                            Margin = new MarginPadding { Vertical = 3 },
+                        });
+
+                        if (gains.Count > 0)
+                        {
+                            var g = gains[0];
+                            textFlow.Add(buildHighlightRow("▲ BEST GAIN", g.Title, formatSignedPP(g.Delta), color_gain));
+                        }
+
+                        if (losses.Count > 0)
+                        {
+                            var l = losses[0];
+                            textFlow.Add(buildHighlightRow("▼ WORST LOSS", l.Title, formatSignedPP(l.Delta), color_loss));
+                        }
+                    }
+                }
+
+                InternalChildren = new Drawable[]
+                {
+                    new Box
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Colour = Color4Extensions.FromHex(@"18162d").Opacity(0.92f),
+                        BypassAutoSizeAxes = Axes.Y,
+                    },
+                    new Box
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Colour = ColourInfo.GradientHorizontal(accent.Opacity(0.08f), Color4.Transparent),
+                        BypassAutoSizeAxes = Axes.Y,
+                    },
+                    new Box
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Width = 0.018f,
+                        Colour = accent,
+                        BypassAutoSizeAxes = Axes.Y,
+                    },
+                    new Container
+                    {
+                        RelativeSizeAxes = Axes.X,
+                        AutoSizeAxes = Axes.Y,
+                        Padding = new MarginPadding { Horizontal = 22, Vertical = 18 },
+                        Children = new Drawable[]
+                        {
+                            new CircularContainer
+                            {
+                                Anchor = Anchor.TopLeft,
+                                Origin = Anchor.TopLeft,
+                                Y = 6,
+                                Size = new Vector2(58),
+                                Masking = true,
+                                Children = new Drawable[]
+                                {
+                                    new Box
+                                    {
+                                        RelativeSizeAxes = Axes.Both,
+                                        Colour = accent.Opacity(0.16f),
+                                    },
+                                    new SpriteIcon
+                                    {
+                                        Anchor = Anchor.Centre,
+                                        Origin = Anchor.Centre,
+                                        Size = new Vector2(22),
+                                        Icon = FontAwesome.Solid.Sync,
+                                        Colour = accent,
+                                    },
+                                },
+                            },
+                            textFlow,
+                        },
+                    },
+                };
+            }
+
+            private static FillFlowContainer buildHighlightRow(string label, string title, string value, Color4 color)
+            {
+                return new FillFlowContainer
+                {
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                    Direction = FillDirection.Horizontal,
+                    Spacing = new Vector2(6, 0),
+                    Children = new Drawable[]
+                    {
+                        new OsuSpriteText
+                        {
+                            Text = label,
+                            Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                            Colour = color,
+                            Width = 94,
+                        },
+                        new OsuSpriteText
+                        {
+                            Text = trim(title, 32),
+                            Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                            Colour = Color4.White.Opacity(0.82f),
+                        },
+                        new OsuSpriteText
+                        {
+                            Text = $"  {value}",
+                            Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                            Colour = color,
                         },
                     },
                 };

@@ -6,13 +6,13 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
+using osu.Framework.Graphics.UserInterface;
 using osu.Framework.Localisation;
 using osu.Game.Configuration;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Graphics.UserInterface;
 using osu.Game.Graphics.UserInterfaceV2;
-using osu.Game.Online.API;
 using osuTK;
 using osuTK.Graphics;
 
@@ -20,51 +20,25 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
 {
     public partial class ToriiExperimentalSettings : SettingsSubsection
     {
-        protected override LocalisableString Header => "Alpha Features";
-
-        [Resolved(CanBeNull = true)]
-        private IAPIProvider? api { get; set; }
-
-        private Bindable<bool> alphaToolbarUnlocked = null!;
-        private Bindable<bool> alphaToolbarUse = null!;
-        private Bindable<bool> alphaPpDevEnabled = null!;
-        private IBindable<APIState>? apiState;
-
-        private readonly Bindable<SettingsNote.Data?> alphaToolbarNote = new Bindable<SettingsNote.Data?>();
-        private readonly Bindable<SettingsNote.Data?> alphaPpDevNote = new Bindable<SettingsNote.Data?>();
+        protected override LocalisableString Header => "Access Codes";
 
         private Container codeInputContainer = null!;
         private OsuTextBox codeBox = null!;
         private Box codeInputGlow = null!;
         private OsuSpriteText statusText = null!;
 
+        // Alpha feature toggles (only visible when their feature is unlocked)
+        private Drawable alphaNavbarToggle = null!;
+
+        private Bindable<bool> alphaToolbarEnabled = null!;
+
         [BackgroundDependencyLoader]
         private void load(OsuConfigManager config)
         {
-            alphaToolbarUnlocked = config.GetBindable<bool>(OsuSetting.AlphaToolbarEnabled);
-            alphaToolbarUse = config.GetBindable<bool>(OsuSetting.AlphaToolbarUse);
-            alphaPpDevEnabled = config.GetBindable<bool>(OsuSetting.AlphaPpDevModeEnabled);
+            alphaToolbarEnabled = config.GetBindable<bool>(OsuSetting.AlphaToolbarEnabled);
 
             Children = new Drawable[]
             {
-                new SettingsItemV2(new FormCheckBox
-                {
-                    Caption = "Use alpha navbar style",
-                    Current = alphaToolbarUse,
-                })
-                {
-                    Keywords = new[] { "torii", "navbar", "alpha", "experimental" },
-                    Note = { BindTarget = alphaToolbarNote },
-                },
-                new SettingsItemV2(new FormCheckBox
-                {
-                    Caption = "Use pp-dev balance (alpha)",
-                    Current = alphaPpDevEnabled,
-                })
-                {
-                    Keywords = new[] { "torii", "pp", "dev", "alpha", "experimental" },
-                    Note = { BindTarget = alphaPpDevNote },
-                },
                 new FillFlowContainer
                 {
                     RelativeSizeAxes = Axes.X,
@@ -93,7 +67,7 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
                                 {
                                     RelativeSizeAxes = Axes.X,
                                     Height = 36,
-                                    PlaceholderText = "Enter access token",
+                                    PlaceholderText = "Enter access code",
                                 },
                                 codeInputGlow = new Box
                                 {
@@ -110,44 +84,24 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
                         },
                     },
                 },
+                // Alpha features section — items here are hidden until their code is entered
+                alphaNavbarToggle = new SettingsItemV2(new FormCheckBox
+                {
+                    Caption = "Alpha Navbar",
+                    Current = config.GetBindable<bool>(OsuSetting.AlphaToolbarUse),
+                })
+                {
+                    Keywords = new[] { @"navbar", @"toolbar", @"alpha", @"torii" },
+                    Alpha = alphaToolbarEnabled.Value ? 1f : 0f,
+                },
             };
 
             codeBox.OnCommit += (_, __) => applyCode(codeBox.Current.Value);
 
-            if (api is APIAccess apiAccess)
+            alphaToolbarEnabled.BindValueChanged(e =>
             {
-                apiState = apiAccess.State.GetBoundCopy();
-                apiState.BindValueChanged(_ => updatePpDevAvailabilityNote(), true);
-            }
-        }
-
-        protected override void LoadComplete()
-        {
-            base.LoadComplete();
-
-            alphaToolbarUnlocked.BindValueChanged(v =>
-            {
-                if (!v.NewValue)
-                {
-                    // Ensure value can be reset before disabling the control.
-                    alphaToolbarUse.Disabled = false;
-                    alphaToolbarUse.Value = false;
-                    alphaToolbarUse.Disabled = true;
-                    alphaToolbarNote.Value = new SettingsNote.Data("Locked.", SettingsNote.Type.Warning);
-                }
-                else
-                {
-                    alphaToolbarUse.Disabled = false;
-                    alphaToolbarNote.Value = new SettingsNote.Data("Unlocked. Re-open main menu after changing this.", SettingsNote.Type.Informational);
-                }
-            }, true);
-
-            alphaPpDevEnabled.BindValueChanged(v =>
-            {
-                // Keep runtime pp-variant state in sync immediately with settings changes.
-                ToriiPpVariantState.SetEffectiveValue(v.NewValue);
-                updatePpDevAvailabilityNote();
-            }, true);
+                alphaNavbarToggle.Alpha = e.NewValue ? 1f : 0f;
+            });
         }
 
         private void applyCode(string rawCode)
@@ -156,77 +110,33 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
             if (string.IsNullOrEmpty(code))
                 return;
 
-            string message;
-            bool success = true;
-
             switch (code)
             {
-                case "torii-alpha-navbar":
-                case "alpha-navbar":
-                    alphaToolbarUnlocked.Value = true;
-                    message = "Alpha navbar unlocked.";
-                    break;
-
-                case "alpha-navbar-on":
-                    alphaToolbarUnlocked.Value = true;
-                    alphaToolbarUse.Value = true;
-                    message = "Alpha navbar unlocked and enabled.";
-                    break;
-
-                case "alpha-navbar-off":
-                    if (!alphaToolbarUse.Disabled)
+                case "torii-nav":
+                case "toriibar":
+                case "alpha-nav":
+                    if (alphaToolbarEnabled.Value)
                     {
-                        alphaToolbarUse.Value = false;
-                        message = "Alpha navbar disabled.";
+                        statusText.Text = "Alpha Navbar already unlocked.";
+                        statusText.Colour = new Color4(180, 180, 180, 255);
+                        playCodeInputFeedback(false);
                     }
                     else
                     {
-                        message = "Alpha navbar is locked.";
+                        alphaToolbarEnabled.Value = true;
+                        statusText.Text = "Alpha Navbar unlocked! Toggle it above.";
+                        statusText.Colour = new Color4(129, 242, 145, 255);
+                        playCodeInputFeedback(true);
                     }
-                    break;
-
-                case "torii-alpha-ppdev":
-                case "alpha-ppdev":
-                    if (api is APIAccess ppDevApi && (ppDevApi.IsUnsafeOfficialEndpoint || !ppDevApi.IsLikelyToriiEndpoint))
-                    {
-                        success = false;
-                        message = "PP-dev requires a Torii API endpoint.";
-                        break;
-                    }
-
-                    alphaPpDevEnabled.Value = true;
-                    message = "PP-dev alpha enabled.";
-                    break;
-
-                case "alpha-ppdev-off":
-                    alphaPpDevEnabled.Value = false;
-                    message = "PP-dev alpha disabled.";
-                    break;
-
-                case "torii-alpha-all":
-                case "alpha-all":
-                    if (api is APIAccess allApi && (allApi.IsUnsafeOfficialEndpoint || !allApi.IsLikelyToriiEndpoint))
-                    {
-                        success = false;
-                        message = "PP-dev requires a Torii API endpoint.";
-                        break;
-                    }
-
-                    alphaToolbarUnlocked.Value = true;
-                    alphaToolbarUse.Value = true;
-                    alphaPpDevEnabled.Value = true;
-                    message = "All alpha features enabled.";
                     break;
 
                 default:
-                    success = false;
-                    message = "Invalid code.";
+                    statusText.Text = "No active alpha feature for that code.";
+                    statusText.Colour = new Color4(255, 165, 120, 255);
+                    playCodeInputFeedback(false);
                     break;
             }
 
-            statusText.Text = message;
-            statusText.Colour = success ? new Color4(129, 242, 145, 255) : new Color4(255, 165, 120, 255);
-            playCodeInputFeedback(success);
             codeBox.Current.Value = string.Empty;
         }
 
@@ -248,55 +158,6 @@ namespace osu.Game.Overlays.Settings.Sections.Torii
             codeInputGlow.FadeTo(0.28f, 70, Easing.OutQuint)
                          .Then()
                          .FadeOut(220, Easing.OutQuint);
-        }
-
-        private void updatePpDevAvailabilityNote()
-        {
-            if (api is not APIAccess apiAccess)
-            {
-                alphaPpDevEnabled.Disabled = false;
-                alphaPpDevNote.Value = alphaPpDevEnabled.Value
-                    ? new SettingsNote.Data("Enabled. Server-side support is still required for full parity.", SettingsNote.Type.Informational)
-                    : new SettingsNote.Data("Disabled.", SettingsNote.Type.Informational);
-                return;
-            }
-
-            if (apiAccess.IsUnsafeOfficialEndpoint)
-            {
-                if (alphaPpDevEnabled.Value)
-                    alphaPpDevEnabled.Value = false;
-
-                alphaPpDevEnabled.Disabled = true;
-                alphaPpDevNote.Value = new SettingsNote.Data(
-                    "Blocked on osu.ppy.sh/dev.ppy.sh for account safety. Set your Torii API URL first.",
-                    SettingsNote.Type.Warning
-                );
-                return;
-            }
-
-            if (!apiAccess.IsLikelyToriiEndpoint)
-            {
-                if (alphaPpDevEnabled.Value)
-                    alphaPpDevEnabled.Value = false;
-
-                alphaPpDevEnabled.Disabled = true;
-                alphaPpDevNote.Value = new SettingsNote.Data(
-                    "Unavailable on this API endpoint. Connect to Torii (shikkesora/local) to enable pp-dev mode.",
-                    SettingsNote.Type.Warning
-                );
-                return;
-            }
-
-            alphaPpDevEnabled.Disabled = false;
-
-            if (alphaPpDevEnabled.Value)
-            {
-                alphaPpDevNote.Value = new SettingsNote.Data("Enabled. Profile/ranking/leaderboards use pp-dev where supported.", SettingsNote.Type.Informational);
-            }
-            else
-            {
-                alphaPpDevNote.Value = new SettingsNote.Data("Disabled.", SettingsNote.Type.Informational);
-            }
         }
     }
 }

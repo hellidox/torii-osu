@@ -71,6 +71,7 @@ namespace osu.Game.Configuration
             SetDefault(OsuSetting.AlphaToolbarEnabled, false);
             SetDefault(OsuSetting.AlphaToolbarUse, false);
             SetDefault(OsuSetting.AlphaPpDevModeEnabled, false);
+            SetDefault(OsuSetting.AlphaStableSongSelectEnabled, false);
 
             SetDefault(OsuSetting.SongSelectBackgroundBlur, false);
 
@@ -225,6 +226,11 @@ namespace osu.Game.Configuration
             SetDefault(OsuSetting.EditorAdjustExistingObjectsOnTimingChanges, true);
 
             SetDefault(OsuSetting.HideCountryFlags, false);
+
+            // Torii: global toggle for the per-user aura particle effect
+            // (rendered behind elite-group usernames everywhere their name shows).
+            // Defaults on; users on weaker hardware can disable it from Graphics.
+            SetDefault(OsuSetting.UserAuraEnabled, true);
 
             SetDefault(OsuSetting.MultiplayerRoomFilter, RoomPermissionsFilter.All);
             SetDefault(OsuSetting.MultiplayerShowInProgressFilter, true);
@@ -447,6 +453,7 @@ namespace osu.Game.Configuration
         AlphaToolbarEnabled,
         AlphaToolbarUse,
         AlphaPpDevModeEnabled,
+        AlphaStableSongSelectEnabled,
         SongSelectBackgroundBlur,
         Version,
         ShowFirstRunSetup,
@@ -546,5 +553,12 @@ namespace osu.Game.Configuration
         AllowBenchmarkUnlimitedFrameLimiter,
         DashboardSortMode,
         DashboardDisplayStyle,
+
+        /// <summary>
+        /// Toggle for the per-user aura particle effect rendered behind
+        /// elite-group usernames (admin embers, goof leaves, etc.) anywhere
+        /// the username appears (chat, profile, leaderboards, multi).
+        /// </summary>
+        UserAuraEnabled,
     }
 }
