@@ -34,9 +34,18 @@ namespace osu.Game.Rulesets.Osu.Mods
             Precision = 0.1f,
             MinValue = 0,
             MaxValue = 10,
-            ExtendedMinValue = -10,
-            ExtendedMaxValue = 11,
+            ExtendedMinValue = -85, // AR-35 on 2xDT
+            ExtendedMaxValue = 12f, // AR11 on 0.5xHT
             ReadCurrentFromDifficulty = diff => diff.ApproachRate,
+        };
+
+        public override DifficultyBindable OverallDifficulty { get; } = new DifficultyBindable
+        {
+            Precision = 0.1f,
+            MinValue = 0,
+            MaxValue = 10,
+            ExtendedMaxValue = 12.2f, // OD11.07 on 0.5xHT
+            ReadCurrentFromDifficulty = diff => diff.OverallDifficulty,
         };
 
         public override string ExtendedIconInformation
